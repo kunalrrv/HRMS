@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback } from '../ui/avatar';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'hr', 'employee'] },
+  { path: '/admin/tenants', label: 'Tenants', icon: Building2, roles: ['super_admin'] },
   { path: '/profile', label: 'My Profile', icon: UserCircle, roles: ['employee'] },
   { path: '/employees', label: 'Employees', icon: Users, roles: ['super_admin', 'admin', 'hr'] },
   { path: '/attendance', label: 'Attendance', icon: Clock, roles: ['super_admin', 'admin', 'hr', 'employee'] },

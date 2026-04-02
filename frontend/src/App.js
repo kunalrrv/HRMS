@@ -34,6 +34,7 @@ import ProjectsPage from "./pages/projects/ProjectsPage";
 import CalendarPage from "./pages/calendar/CalendarPage";
 import ProfilePage from "./pages/profile/ProfilePage";
 import AuditLogsPage from "./pages/audit/AuditLogsPage";
+import TenantsPage from "./pages/admin/TenantsPage";
 import { FeatureGate } from "./components/FeatureGate";
 
 // Router wrapper to handle OAuth callback synchronously
@@ -77,6 +78,7 @@ function AppRouter() {
         </ProtectedRoute>
       }>
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/admin/tenants" element={<TenantsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/employees" element={<EmployeesPage />} />
         <Route path="/employees/new" element={<EmployeesPage />} />

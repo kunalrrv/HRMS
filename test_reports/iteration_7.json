@@ -1,0 +1,107 @@
+{
+  "summary": "Completed comprehensive testing of Super Admin Tenant Management features. All 18 test cases from the request passed. Backend APIs 100% functional (12/12 pytest tests passed). Frontend UI fully operational with all workflows tested via Playwright.",
+  
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  
+  "passed_tests": [
+    "1. Login as Super Admin (admin@talentops.com / admin123) - verified role is super_admin ✓",
+    "2. Sidebar: 'Tenants' nav item visible for super_admin only ✓",
+    "3. Navigate to /admin/tenants - verified platform stats cards (Total Companies, Active, Total Users, Total Employees) ✓",
+    "4. Plan distribution cards show Free Trial, Starter, Professional, Enterprise with counts ✓",
+    "5. Tenants table shows all companies with columns: Company, Admin, Plan, Employees, Status, Actions ✓",
+    "6. Click View (eye icon) - verified detail modal shows org info, users list, enabled features ✓",
+    "7. Click Create Company button - verified dialog opens with Company Name, Domain, Industry, Plan, Admin Name/Email/Password fields ✓",
+    "8. Create a new company 'UI_Test_Company' with admin on Starter plan - verified success ✓",
+    "9. New company appears in the table with correct plan and admin email ✓",
+    "10. Change plan dropdown from Starter to Enterprise - verified toast and plan updates ✓",
+    "11. Click Suspend (power icon) - verified status changes to 'Suspended' ✓",
+    "12. Click Activate again - verified status back to 'Active' ✓",
+    "13. Backend: POST /api/admin/impersonate/{acme_org_id} - verified returns admin user session for Acme Corp ✓",
+    "14. Login as new admin - verified empty dashboard (no other org data) ✓",
+    "15. Login as HR (hr@acmecorp.com / password123) - verified only Acme data visible, no /admin/tenants in sidebar ✓",
+    "16. Backend: GET /api/admin/stats returns correct total_orgs count after creating new company ✓",
+    "17. Backend: GET /api/admin/tenants returns list with all orgs including newly created companies ✓",
+    "18. Backend: Non-super-admin trying GET /api/admin/tenants gets 403 ✓"
+  ],
+  
+  "test_report_links": [
+    "/app/backend/tests/test_tenant_management.py",
+    "/app/test_reports/pytest/pytest_tenant_mgmt.xml"
+  ],
+  
+  "action_items": [],
+  
+  "critical_code_review_comments": [],
+  
+  "updated_files": [
+    "/app/backend/tests/test_tenant_management.py"
+  ],
+  
+  "success_rate": {
+    "backend": "100% (12/12 pytest tests passed)",
+    "frontend": "100% (All 18 UI tests passed)"
+  },
+  
+  "test_credentials": {
+    "super_admin": "admin@talentops.com / admin123 (role: super_admin)",
+    "hr_admin": "hr@acmecorp.com / password123 (role: admin, Acme Corporation, org_id: 95e97e99-55d5-4f38-bcbd-72fdcebe3fbb)",
+    "employee": "john.doe@acmecorp.com / employee123",
+    "techstartup_admin": "bob@techstartup.com / startup123 (role: admin, TechStartup Inc)"
+  },
+  
+  "seed_data_verified": {
+    "organizations": "5 total (Acme Corporation, Test Organization, TechStartup Inc, TEST_GlobalTech, UI_Test_Company)",
+    "plan_distribution": {
+      "free_trial": 1,
+      "starter": 1,
+      "professional": 1,
+      "enterprise": 2
+    }
+  },
+  
+  "mocked_api": {
+    "payment_gateway": "Razorpay payment is MOCKED - instant verification without real payment"
+  },
+  
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  
+  "context_for_next_testing_agent": "Super Admin Tenant Management fully tested. Key endpoints: GET /api/admin/tenants (list all), GET /api/admin/tenants/{org_id} (details), POST /api/admin/tenants (create), PUT /api/admin/tenants/{org_id}/status (toggle), PUT /api/admin/tenants/{org_id}/plan (change plan), POST /api/admin/impersonate/{org_id} (impersonate), GET /api/admin/stats (platform stats). All require super_admin role. Non-super-admin gets 403. Sidebar shows 'Tenants' nav only for super_admin. TenantsPage.js has data-testid attributes: create-tenant-btn, view-{org_id}, toggle-{org_id}, impersonate-{org_id}, plan-select-{org_id}, stat-orgs, stat-active, stat-users, stat-employees.",
+  
+  "features_verified": {
+    "tenant_management": {
+      "list_tenants": "GET /api/admin/tenants returns all orgs with employee_count, user_count, admin_email",
+      "tenant_details": "GET /api/admin/tenants/{org_id} returns org info, users list, plan_info with features",
+      "create_tenant": "POST /api/admin/tenants creates org + admin user + leave policy",
+      "toggle_status": "PUT /api/admin/tenants/{org_id}/status toggles is_active",
+      "change_plan": "PUT /api/admin/tenants/{org_id}/plan updates subscription_plan",
+      "impersonate": "POST /api/admin/impersonate/{org_id} sets cookies as org admin",
+      "platform_stats": "GET /api/admin/stats returns total_orgs, active_orgs, total_users, total_employees, plan_distribution"
+    },
+    "access_control": {
+      "super_admin_only": "All /api/admin/* endpoints require role=super_admin",
+      "403_for_others": "Non-super-admin gets 403 Forbidden",
+      "sidebar_visibility": "Tenants nav only visible for super_admin role"
+    },
+    "data_isolation": {
+      "org_scoped_data": "Each org sees only their own employees, leaves, payroll",
+      "new_org_empty": "Newly created org has 0 employees"
+    },
+    "ui_components": {
+      "stats_cards": "4 cards: Total Companies, Active Companies, Total Users, Total Employees",
+      "plan_distribution": "4 cards showing count per plan with USD prices",
+      "tenants_table": "Columns: Company, Admin, Plan, Employees, Status, Actions",
+      "detail_modal": "Shows org info, users list, enabled features",
+      "create_dialog": "Form with Company Name, Domain, Industry, Plan, Admin Name/Email/Password"
+    }
+  }
+}

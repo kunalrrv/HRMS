@@ -59,6 +59,7 @@ class FeatureGateMiddleware(BaseHTTPMiddleware):
         "/api/auth", "/api/subscription", "/api/organizations", "/api/dashboard",
         "/api/profile", "/api/employees", "/api/attendance", "/api/leaves",
         "/api/calendar", "/api/payroll/states", "/api/health", "/api/upload",
+        "/api/admin",
     ]
 
     async def dispatch(self, request, call_next):
@@ -501,6 +502,13 @@ async def get_current_user(request: Request) -> dict:
             raise HTTPException(status_code=401, detail="User not found")
         user.pop("_id", None)
         user.pop("password_hash", None)
+        
+        # Check if org is suspended (skip for super admin)
+        if user.get("org_id") and user["role"] != UserRole.SUPER_ADMIN.value:
+            org = await db.organizations.find_one({"id": user["org_id"]}, {"_id": 0})
+            if org and org.get("is_active") is False:
+                raise HTTPException(status_code=403, detail="Your organization has been suspended. Contact support.")
+        
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
@@ -2325,6 +2333,242 @@ async def get_dashboard_analytics(request: Request):
             "open_positions": len(jobs),
             "total_candidates": sum(pipeline_stages.values())
         }
+    }
+
+# ===================== SUPER ADMIN - TENANT MANAGEMENT =====================
+class CreateTenantRequest(BaseModel):
+    company_name: str
+    domain: Optional[str] = None
+    industry: Optional[str] = None
+    admin_name: str
+    admin_email: str
+    admin_password: str
+    plan: str = "free_trial"
+
+@api_router.get("/admin/tenants")
+async def list_all_tenants(request: Request):
+    user = await get_current_user(request)
+    if user["role"] != UserRole.SUPER_ADMIN.value:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    
+    orgs = await db.organizations.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    result = []
+    for org in orgs:
+        emp_count = await db.employees.count_documents({"org_id": org["id"]})
+        user_count = await db.users.count_documents({"org_id": org["id"]})
+        admin_user = await db.users.find_one({"org_id": org["id"], "role": {"$in": ["admin", "hr"]}}, {"_id": 0, "password_hash": 0})
+        result.append({
+            "id": org["id"],
+            "name": org.get("name", ""),
+            "domain": org.get("domain", ""),
+            "industry": org.get("industry", ""),
+            "subscription_plan": org.get("subscription_plan", "free_trial"),
+            "trial_ends_at": org.get("trial_ends_at"),
+            "is_active": org.get("is_active", True),
+            "employee_count": emp_count,
+            "user_count": user_count,
+            "admin_email": admin_user["email"] if admin_user else None,
+            "admin_name": admin_user["name"] if admin_user else None,
+            "created_at": org.get("created_at", ""),
+        })
+    return result
+
+@api_router.get("/admin/tenants/{org_id}")
+async def get_tenant_details(org_id: str, request: Request):
+    user = await get_current_user(request)
+    if user["role"] != UserRole.SUPER_ADMIN.value:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    
+    org = await db.organizations.find_one({"id": org_id}, {"_id": 0})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    employees = await db.employees.find({"org_id": org_id}, {"_id": 0}).to_list(1000)
+    users = await db.users.find({"org_id": org_id}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    
+    emp_count = len(employees)
+    payroll_count = await db.payroll.count_documents({"org_id": org_id})
+    leave_count = await db.leaves.count_documents({"org_id": org_id})
+    job_count = await db.jobs.count_documents({"org_id": org_id})
+    
+    plan_info = await get_org_plan(org_id)
+    
+    return {
+        "organization": org,
+        "users": users,
+        "employee_count": emp_count,
+        "payroll_count": payroll_count,
+        "leave_count": leave_count,
+        "job_count": job_count,
+        "plan_info": {
+            "plan": plan_info["plan"],
+            "expired": plan_info["expired"],
+            "max_employees": plan_info["limits"]["max_employees"],
+            "features": plan_info["limits"]["features"]
+        }
+    }
+
+@api_router.post("/admin/tenants")
+async def create_tenant(data: CreateTenantRequest, request: Request):
+    user = await get_current_user(request)
+    if user["role"] != UserRole.SUPER_ADMIN.value:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    
+    # Check if admin email already exists
+    existing_user = await db.users.find_one({"email": data.admin_email})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Admin email already exists")
+    
+    # Create organization
+    org_id = str(uuid.uuid4())
+    trial_ends = datetime.now(timezone.utc) + timedelta(days=14)
+    org = {
+        "id": org_id,
+        "name": data.company_name,
+        "domain": data.domain or "",
+        "industry": data.industry or "",
+        "subscription_plan": data.plan,
+        "trial_ends_at": trial_ends.isoformat() if data.plan == "free_trial" else None,
+        "is_active": True,
+        "owner_id": None,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.organizations.insert_one(org)
+    
+    # Create admin user for this org
+    admin_id = str(uuid.uuid4())
+    admin_user = {
+        "id": admin_id,
+        "email": data.admin_email,
+        "name": data.admin_name,
+        "password_hash": hash_password(data.admin_password),
+        "role": UserRole.ADMIN.value,
+        "org_id": org_id,
+        "employee_id": None,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.users.insert_one(admin_user)
+    
+    # Update owner
+    await db.organizations.update_one({"id": org_id}, {"$set": {"owner_id": admin_id}})
+    
+    # Create default leave policy
+    await db.leave_policies.insert_one({
+        "id": str(uuid.uuid4()),
+        "org_id": org_id,
+        "casual_leave": 12,
+        "sick_leave": 12,
+        "privilege_leave": 15,
+        "year": datetime.now(timezone.utc).year,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    await log_audit(None, user["id"], user["email"], "CREATE", "tenant", org_id, f"Created tenant: {data.company_name} with admin {data.admin_email}")
+    
+    return {"message": "Tenant created", "org_id": org_id, "admin_email": data.admin_email}
+
+@api_router.put("/admin/tenants/{org_id}/status")
+async def toggle_tenant_status(org_id: str, request: Request):
+    user = await get_current_user(request)
+    if user["role"] != UserRole.SUPER_ADMIN.value:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    
+    org = await db.organizations.find_one({"id": org_id}, {"_id": 0})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    new_status = not org.get("is_active", True)
+    await db.organizations.update_one({"id": org_id}, {"$set": {"is_active": new_status}})
+    
+    action = "ACTIVATE" if new_status else "DEACTIVATE"
+    await log_audit(None, user["id"], user["email"], action, "tenant", org_id, f"{action} tenant: {org['name']}")
+    
+    return {"message": f"Tenant {'activated' if new_status else 'deactivated'}", "is_active": new_status}
+
+@api_router.put("/admin/tenants/{org_id}/plan")
+async def change_tenant_plan(org_id: str, request: Request):
+    user = await get_current_user(request)
+    if user["role"] != UserRole.SUPER_ADMIN.value:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    
+    body = await request.json()
+    plan = body.get("plan")
+    if plan not in [p.value for p in SubscriptionPlan]:
+        raise HTTPException(status_code=400, detail="Invalid plan")
+    
+    org = await db.organizations.find_one({"id": org_id}, {"_id": 0})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    update = {"subscription_plan": plan}
+    if plan == "free_trial":
+        update["trial_ends_at"] = (datetime.now(timezone.utc) + timedelta(days=14)).isoformat()
+    else:
+        update["trial_ends_at"] = None
+    
+    await db.organizations.update_one({"id": org_id}, {"$set": update})
+    await log_audit(None, user["id"], user["email"], "UPDATE", "tenant", org_id, f"Changed plan for {org['name']} to {plan}")
+    
+    return {"message": f"Plan updated to {plan}"}
+
+@api_router.post("/admin/impersonate/{org_id}")
+async def impersonate_org_admin(org_id: str, request: Request, response: Response):
+    user = await get_current_user(request)
+    if user["role"] != UserRole.SUPER_ADMIN.value:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    
+    org = await db.organizations.find_one({"id": org_id}, {"_id": 0})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    # Find the org admin
+    admin_user = await db.users.find_one({"org_id": org_id, "role": {"$in": ["admin", "hr"]}}, {"_id": 0})
+    if not admin_user:
+        raise HTTPException(status_code=404, detail="No admin user found for this organization")
+    
+    # Create tokens as the org admin
+    access_token = create_access_token(admin_user["id"], admin_user["email"], admin_user["role"], org_id)
+    refresh_token = create_refresh_token(admin_user["id"])
+    
+    is_preview = ".preview.emergentagent.com" in str(request.base_url) or ".emergentagent.com" in str(request.base_url)
+    
+    response.set_cookie("access_token", access_token, httponly=True, secure=True, samesite="none", max_age=3600)
+    response.set_cookie("refresh_token", refresh_token, httponly=True, secure=True, samesite="none", max_age=604800)
+    
+    await log_audit(None, user["id"], user["email"], "IMPERSONATE", "tenant", org_id, f"Impersonated admin of {org['name']}")
+    
+    return {
+        "message": f"Now logged in as {admin_user['email']} ({org['name']})",
+        "id": admin_user["id"],
+        "email": admin_user["email"],
+        "name": admin_user["name"],
+        "role": admin_user["role"],
+        "org_id": org_id,
+        "employee_id": admin_user.get("employee_id"),
+        "impersonated": True
+    }
+
+@api_router.get("/admin/stats")
+async def get_platform_stats(request: Request):
+    user = await get_current_user(request)
+    if user["role"] != UserRole.SUPER_ADMIN.value:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    
+    total_orgs = await db.organizations.count_documents({})
+    active_orgs = await db.organizations.count_documents({"is_active": {"$ne": False}})
+    total_users = await db.users.count_documents({})
+    total_employees = await db.employees.count_documents({})
+    
+    plan_dist = {}
+    for plan in ["free_trial", "starter", "professional", "enterprise"]:
+        plan_dist[plan] = await db.organizations.count_documents({"subscription_plan": plan})
+    
+    return {
+        "total_orgs": total_orgs,
+        "active_orgs": active_orgs,
+        "total_users": total_users,
+        "total_employees": total_employees,
+        "plan_distribution": plan_dist
     }
 
 # ===================== HEALTH CHECK =====================

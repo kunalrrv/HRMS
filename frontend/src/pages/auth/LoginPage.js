@@ -140,20 +140,20 @@ export default function LoginPage() {
           </Card>
 
           {/* Test Credentials Card */}
-          <Card className="mt-4 border border-slate-200 bg-slate-50">
+          <Card className="mt-4 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
             <CardHeader className="py-3 px-4">
-              <CardTitle className="text-sm font-medium text-slate-700">Demo Accounts</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Demo Accounts</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4 pt-0">
               <div className="space-y-2">
                 {TEST_CREDENTIALS.map((cred, index) => (
                   <div 
                     key={index}
-                    className="flex items-center justify-between p-2 bg-white rounded-md border border-slate-200 text-xs"
+                    className="flex items-center justify-between p-2 bg-white dark:bg-slate-700 rounded-md border border-slate-200 dark:border-slate-600 text-xs"
                   >
                     <div className="flex-1">
-                      <span className="font-semibold text-[#002FA7]">{cred.role}</span>
-                      <div className="text-slate-600 mt-0.5">
+                      <span className="font-semibold text-[#002FA7] dark:text-blue-400">{cred.role}</span>
+                      <div className="text-slate-600 dark:text-slate-400 mt-0.5">
                         {cred.email} / {cred.password}
                       </div>
                     </div>
