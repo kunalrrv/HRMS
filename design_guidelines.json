@@ -1,0 +1,93 @@
+{
+  "theme": "Light",
+  "archetype": "Archetype 4 (Swiss & High-Contrast)",
+  "emotional_tone": "Authority, Clarity, Trust, and Operational Efficiency",
+  "colors": {
+    "background": "#F9FAFB",
+    "surface": "#FFFFFF",
+    "primary": "#002FA7",
+    "primary_hover": "#00227A",
+    "secondary": "#1E293B",
+    "text_primary": "#0F172A",
+    "text_secondary": "#64748B",
+    "accent_success": "#16A34A",
+    "accent_warning": "#D97706",
+    "accent_danger": "#DC2626",
+    "border": "#E2E8F0"
+  },
+  "typography": {
+    "headings": {
+      "font_family": "Chivo",
+      "weights": ["400", "700", "900"],
+      "h1": "text-4xl sm:text-5xl tracking-tight leading-none",
+      "h2": "text-2xl sm:text-3xl tracking-tight leading-snug",
+      "h3": "text-xl sm:text-2xl tracking-tight",
+      "h4": "text-lg sm:text-xl font-medium"
+    },
+    "body": {
+      "font_family": "IBM Plex Sans",
+      "weights": ["400", "500", "600"],
+      "base": "text-base leading-relaxed",
+      "sm": "text-sm leading-normal",
+      "xs": "text-xs uppercase tracking-[0.2em] font-semibold"
+    }
+  },
+  "spacing_and_layout": {
+    "philosophy": "Functional density for dashboards, generous breathing room for settings/profiles.",
+    "container_padding": "p-6 md:p-8",
+    "grid_mode": "MODE B: THE CONTROL ROOM GRID (Dense, data-heavy)",
+    "gap": "gap-4 md:gap-6",
+    "dashboard_grid": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 align-items-start",
+    "cards": "Flat background (bg-white), 1px solid border (border-slate-200), no drop shadows by default. Hover adds subtle -translate-y-[2px] and shadow-sm."
+  },
+  "components": {
+    "buttons": "Square or rounded-md (max 6px). Primary: bg-[#002FA7] text-white hover:bg-[#00227A]. Secondary: bg-white border border-slate-300 text-slate-700 hover:bg-slate-50. Ghost: text-slate-600 hover:bg-slate-100.",
+    "inputs": "Shadcn default styling (h-10), focus:ring-2 focus:ring-[#002FA7]/20 focus:border-[#002FA7].",
+    "tables": "Dense rows, sticky header. Zebra striping on hover (hover:bg-slate-50). Data aligned strictly (left for text, right for numbers/currency).",
+    "sidebar": "Collapsible sidebar, 250px wide. Active link indicated by left border accent (border-l-4 border-[#002FA7]) and subtle background tint (bg-blue-50/50 text-[#002FA7]).",
+    "badges": "Flat colors for status. Active/Clocked-in: bg-green-100 text-green-800. Pending/Leave: bg-amber-100 text-amber-800. Inactive: bg-slate-100 text-slate-800."
+  },
+  "motion_and_interactions": {
+    "hover_states": "Crisp and fast (0.15s ease-out). Changes to background colors and border shades.",
+    "page_transitions": "Fade in via framer-motion (opacity: 0 -> 1, y: 5 -> 0).",
+    "modals": "Backdrop blur (backdrop-blur-sm bg-slate-900/40), dialog slides up from center."
+  },
+  "media_and_assets": {
+    "icons": "lucide-react (Clean, line-based, size 18px for body context, 24px for sidebar).",
+    "image_urls": {
+      "employee_avatar_1": {
+        "url": "https://images.unsplash.com/photo-1758691736975-9f7f643d178e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBkaXZlcnNlJTIwb2ZmaWNlJTIwd29ya2VycyUyMHBvcnRyYWl0fGVufDB8fHx8MTc3NTEwMjU1OXww&ixlib=rb-4.1.0&q=85",
+        "description": "Diverse professional portrait for dummy employee profiles",
+        "usage": "Use as placeholder for employee avatars in tables and profile pages."
+      },
+      "employee_avatar_2": {
+        "url": "https://images.unsplash.com/photo-1573496130141-209d200cebd8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBkaXZlcnNlJTIwb2ZmaWNlJTIwd29ya2VycyUyMHBvcnRyYWl0fGVufDB8fHx8MTc3NTEwMjU1OXww&ixlib=rb-4.1.0&q=85",
+        "description": "Professional women portrait for employee list",
+        "usage": "Use as alternative avatar for team directory."
+      },
+      "tenant_logo_1": {
+        "url": "https://images.pexels.com/photos/26576975/pexels-photo-26576975.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Minimalist geometric branding",
+        "usage": "Use as dummy company/tenant logo in the top-left of the sidebar."
+      },
+      "auth_hero": {
+        "url": "https://images.unsplash.com/photo-1754531976828-69e42ce4e0d9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHw0fHxwcm9mZXNzaW9uYWwlMjBkaXZlcnNlJTIwb2ZmaWNlJTIwd29ya2VycyUyMHBvcnRyYWl0fGVufDB8fHx8MTc3NTEwMjU1OXww&ixlib=rb-4.1.0&q=85",
+        "description": "Team collaboration",
+        "usage": "Use as the background or hero image for the SaaS Auth / Login split screen."
+      }
+    }
+  },
+  "accessibility_and_testing": {
+    "testing_ids": "CRITICAL: MUST apply data-testid to every button, form input, navigation link, and table row for robust E2E testing.",
+    "contrast": "Ensure all text meets APCA/WCAG AA contrast ratios, especially when placing text over tinted backgrounds."
+  },
+  "instructions_to_main_agent": [
+    "Strictly adhere to the Light Theme with the defined High-Contrast Color Palette. Do not use gradients.",
+    "Build the dashboard using a Grid layout (MODE B) - optimize for density, use standard Shadcn UI elements but apply the 'flat and bordered' container aesthetic.",
+    "For Attendance and Payroll tables, make sure column headers are sticky and data relies on typography hierarchy rather than bulky cards.",
+    "Implement the Kanban board for Recruitment with a crisp, non-skeuomorphic UI (flat cards, 1px borders).",
+    "Replace Shadcn's default Inter font with Chivo (headings) and IBM Plex Sans (body). Include these from Google Fonts in your layout file.",
+    "Do not use transparent header backgrounds. Use solid bg-white with a hard border-b.",
+    "All interactive elements MUST have data-testid attributes (e.g., data-testid='clock-in-button')."
+  ]
+}
