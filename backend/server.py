@@ -126,6 +126,7 @@ class EmployeeCreate(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     emergency_contact: Optional[str] = None
+    state_code: Optional[str] = None
 
 class EmployeeResponse(BaseModel):
     id: str
@@ -139,6 +140,7 @@ class EmployeeResponse(BaseModel):
     employee_code: Optional[str] = None
     phone: Optional[str] = None
     reporting_manager_id: Optional[str] = None
+    state_code: Optional[str] = None
     salary_basic: Optional[float] = None
     salary_hra: Optional[float] = None
     salary_allowances: Optional[float] = None
@@ -195,6 +197,10 @@ class PayrollCreate(BaseModel):
     month: int
     year: int
 
+class BulkPayrollCreate(BaseModel):
+    month: int
+    year: int
+
 class PayrollResponse(BaseModel):
     id: str
     employee_id: str
@@ -206,14 +212,15 @@ class PayrollResponse(BaseModel):
     hra: float
     allowances: float
     gross_salary: float
-    pf_employee: float
-    pf_employer: float
-    esi_employee: float
-    esi_employer: float
-    professional_tax: float
-    tds: float
+    federal_tax: float
+    state_tax: float
+    social_security_employee: float
+    social_security_employer: float
+    medicare_employee: float
+    medicare_employer: float
     total_deductions: float
     net_salary: float
+    state_code: Optional[str] = None
     status: str
     created_at: str
 
@@ -421,45 +428,127 @@ def get_object(path: str) -> tuple:
     resp.raise_for_status()
     return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
 
-# India Payroll Calculations
-def calculate_pf(basic: float) -> tuple:
-    """Calculate PF contributions (employee and employer)"""
-    pf_base = min(basic, 15000)  # PF ceiling
-    employee_pf = pf_base * 0.12
-    employer_pf = pf_base * 0.12
-    return round(employee_pf, 2), round(employer_pf, 2)
+# US Payroll Calculations
+US_STATE_TAX_RATES = {
+    "AL": 0.050, "AK": 0.000, "AZ": 0.025, "AR": 0.055, "CA": 0.093,
+    "CO": 0.044, "CT": 0.069, "DE": 0.066, "FL": 0.000, "GA": 0.055,
+    "HI": 0.110, "ID": 0.058, "IL": 0.049, "IN": 0.032, "IA": 0.060,
+    "KS": 0.057, "KY": 0.045, "LA": 0.042, "ME": 0.071, "MD": 0.057,
+    "MA": 0.050, "MI": 0.042, "MN": 0.098, "MS": 0.050, "MO": 0.049,
+    "MT": 0.068, "NE": 0.068, "NV": 0.000, "NH": 0.000, "NJ": 0.108,
+    "NM": 0.059, "NY": 0.109, "NC": 0.045, "ND": 0.029, "OH": 0.040,
+    "OK": 0.048, "OR": 0.099, "PA": 0.031, "RI": 0.059, "SC": 0.064,
+    "SD": 0.000, "TN": 0.000, "TX": 0.000, "UT": 0.047, "VT": 0.088,
+    "VA": 0.057, "WA": 0.000, "WV": 0.065, "WI": 0.076, "WY": 0.000,
+    "DC": 0.105,
+}
 
-def calculate_esi(gross: float) -> tuple:
-    """Calculate ESI contributions if applicable"""
-    if gross > 21000:  # ESI not applicable above 21k
-        return 0, 0
-    employee_esi = gross * 0.0075
-    employer_esi = gross * 0.0325
-    return round(employee_esi, 2), round(employer_esi, 2)
+US_STATE_NAMES = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
+    "CA": "California", "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware",
+    "FL": "Florida", "GA": "Georgia", "HI": "Hawaii", "ID": "Idaho",
+    "IL": "Illinois", "IN": "Indiana", "IA": "Iowa", "KS": "Kansas",
+    "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi",
+    "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada",
+    "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York",
+    "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma",
+    "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
+    "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah",
+    "VT": "Vermont", "VA": "Virginia", "WA": "Washington", "WV": "West Virginia",
+    "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia",
+}
 
-def calculate_professional_tax(gross: float) -> float:
-    """Calculate Professional Tax (Karnataka rates)"""
-    if gross <= 15000:
+def calculate_federal_tax(annual_income: float) -> float:
+    """Calculate US Federal Income Tax (2026 brackets, single filer)"""
+    if annual_income <= 0:
         return 0
-    elif gross <= 20000:
-        return 150
-    else:
-        return 200
+    brackets = [
+        (11600, 0.10), (47150, 0.12), (100525, 0.22),
+        (191950, 0.24), (243725, 0.32), (609350, 0.35), (float('inf'), 0.37)
+    ]
+    tax = 0
+    prev = 0
+    for limit, rate in brackets:
+        taxable = min(annual_income, limit) - prev
+        if taxable <= 0:
+            break
+        tax += taxable * rate
+        prev = limit
+    return round(tax, 2)
 
-def calculate_tds(annual_income: float) -> float:
-    """Calculate TDS based on new tax regime"""
-    if annual_income <= 300000:
-        return 0
-    elif annual_income <= 700000:
-        return (annual_income - 300000) * 0.05
-    elif annual_income <= 1000000:
-        return 20000 + (annual_income - 700000) * 0.10
-    elif annual_income <= 1200000:
-        return 50000 + (annual_income - 1000000) * 0.15
-    elif annual_income <= 1500000:
-        return 80000 + (annual_income - 1200000) * 0.20
-    else:
-        return 140000 + (annual_income - 1500000) * 0.30
+def calculate_social_security(annual_income: float) -> tuple:
+    """Social Security: 6.2% employee + 6.2% employer on first $168,600"""
+    ss_wage_base = 168600
+    taxable = min(annual_income, ss_wage_base)
+    employee_ss = round(taxable * 0.062, 2)
+    employer_ss = round(taxable * 0.062, 2)
+    return employee_ss, employer_ss
+
+def calculate_medicare(annual_income: float) -> tuple:
+    """Medicare: 1.45% + additional 0.9% over $200k"""
+    employee_medicare = round(annual_income * 0.0145, 2)
+    if annual_income > 200000:
+        employee_medicare += round((annual_income - 200000) * 0.009, 2)
+    employer_medicare = round(annual_income * 0.0145, 2)
+    return employee_medicare, employer_medicare
+
+def calculate_state_tax(annual_income: float, state_code: str) -> float:
+    """Calculate state income tax using flat effective rate"""
+    rate = US_STATE_TAX_RATES.get(state_code, 0)
+    return round(annual_income * rate, 2)
+
+def generate_payroll_for_employee(employee: dict, emp_user: dict, org_id: str, month: int, year: int, state_code: str = None) -> dict:
+    """Generate a single payroll record for an employee"""
+    basic = employee.get("salary_basic", 0)
+    hra = employee.get("salary_hra", 0)
+    allowances = employee.get("salary_allowances", 0)
+    gross = basic + hra + allowances
+    annual_income = gross * 12
+
+    emp_state = state_code or employee.get("state_code") or "CA"
+
+    annual_fed = calculate_federal_tax(annual_income)
+    monthly_fed = round(annual_fed / 12, 2)
+
+    annual_state = calculate_state_tax(annual_income, emp_state)
+    monthly_state = round(annual_state / 12, 2)
+
+    annual_ss_emp, annual_ss_er = calculate_social_security(annual_income)
+    monthly_ss_emp = round(annual_ss_emp / 12, 2)
+    monthly_ss_er = round(annual_ss_er / 12, 2)
+
+    annual_med_emp, annual_med_er = calculate_medicare(annual_income)
+    monthly_med_emp = round(annual_med_emp / 12, 2)
+    monthly_med_er = round(annual_med_er / 12, 2)
+
+    total_deductions = monthly_fed + monthly_state + monthly_ss_emp + monthly_med_emp
+    net_salary = round(gross - total_deductions, 2)
+
+    payroll_id = str(uuid.uuid4())
+    return {
+        "id": payroll_id,
+        "employee_id": employee["id"],
+        "employee_name": emp_user["name"] if emp_user else "Unknown",
+        "org_id": org_id,
+        "month": month,
+        "year": year,
+        "basic": basic,
+        "hra": hra,
+        "allowances": allowances,
+        "gross_salary": gross,
+        "federal_tax": monthly_fed,
+        "state_tax": monthly_state,
+        "social_security_employee": monthly_ss_emp,
+        "social_security_employer": monthly_ss_er,
+        "medicare_employee": monthly_med_emp,
+        "medicare_employer": monthly_med_er,
+        "total_deductions": total_deductions,
+        "net_salary": net_salary,
+        "state_code": emp_state,
+        "status": "generated",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
 
 # ===================== AUTH ROUTES =====================
 @api_router.post("/auth/register")
@@ -755,6 +844,7 @@ async def create_employee(data: EmployeeCreate, request: Request):
         "address": data.address,
         "emergency_contact": data.emergency_contact,
         "reporting_manager_id": data.reporting_manager_id,
+        "state_code": data.state_code or "CA",
         "salary_basic": 0,
         "salary_hra": 0,
         "salary_allowances": 0,
@@ -824,6 +914,7 @@ async def list_employees(request: Request, department: Optional[str] = None, sea
                 employee_code=emp.get("employee_code"),
                 phone=emp.get("phone"),
                 reporting_manager_id=emp.get("reporting_manager_id"),
+                state_code=emp.get("state_code"),
                 salary_basic=emp.get("salary_basic"),
                 salary_hra=emp.get("salary_hra"),
                 salary_allowances=emp.get("salary_allowances"),
@@ -854,6 +945,7 @@ async def get_employee(employee_id: str, request: Request):
         employee_code=employee.get("employee_code"),
         phone=employee.get("phone"),
         reporting_manager_id=employee.get("reporting_manager_id"),
+        state_code=employee.get("state_code"),
         salary_basic=employee.get("salary_basic"),
         salary_hra=employee.get("salary_hra"),
         salary_allowances=employee.get("salary_allowances"),
@@ -1142,6 +1234,11 @@ async def get_leave_balance(request: Request):
     return LeaveBalanceResponse(**balance)
 
 # ===================== PAYROLL ROUTES =====================
+@api_router.get("/payroll/states")
+async def get_us_states():
+    """Return list of US states with their tax rates"""
+    return [{"code": k, "name": v, "tax_rate": US_STATE_TAX_RATES[k]} for k, v in US_STATE_NAMES.items()]
+
 @api_router.post("/payroll/generate", response_model=PayrollResponse)
 async def generate_payroll(data: PayrollCreate, request: Request):
     user = await get_current_user(request)
@@ -1154,7 +1251,6 @@ async def generate_payroll(data: PayrollCreate, request: Request):
     
     emp_user = await db.users.find_one({"id": employee["user_id"]}, {"_id": 0})
     
-    # Check if payroll already exists
     existing = await db.payroll.find_one({
         "employee_id": data.employee_id,
         "month": data.month,
@@ -1163,47 +1259,49 @@ async def generate_payroll(data: PayrollCreate, request: Request):
     if existing:
         raise HTTPException(status_code=400, detail="Payroll already generated for this month")
     
-    basic = employee.get("salary_basic", 0)
-    hra = employee.get("salary_hra", 0)
-    allowances = employee.get("salary_allowances", 0)
-    gross = basic + hra + allowances
-    
-    # Calculate deductions
-    pf_employee, pf_employer = calculate_pf(basic)
-    esi_employee, esi_employer = calculate_esi(gross)
-    professional_tax = calculate_professional_tax(gross)
-    
-    annual_income = gross * 12
-    annual_tds = calculate_tds(annual_income)
-    monthly_tds = round(annual_tds / 12, 2)
-    
-    total_deductions = pf_employee + esi_employee + professional_tax + monthly_tds
-    net_salary = round(gross - total_deductions, 2)
-    
-    payroll_id = str(uuid.uuid4())
-    payroll = {
-        "id": payroll_id,
-        "employee_id": data.employee_id,
-        "employee_name": emp_user["name"] if emp_user else "Unknown",
-        "org_id": user["org_id"],
-        "month": data.month,
-        "year": data.year,
-        "basic": basic,
-        "hra": hra,
-        "allowances": allowances,
-        "gross_salary": gross,
-        "pf_employee": pf_employee,
-        "pf_employer": pf_employer,
-        "esi_employee": esi_employee,
-        "esi_employer": esi_employer,
-        "professional_tax": professional_tax,
-        "tds": monthly_tds,
-        "total_deductions": total_deductions,
-        "net_salary": net_salary,
-        "status": "generated",
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
+    payroll = generate_payroll_for_employee(employee, emp_user, user["org_id"], data.month, data.year)
     await db.payroll.insert_one(payroll)
+    
+    return PayrollResponse(**{k: v for k, v in payroll.items() if k != "_id"})
+
+@api_router.post("/payroll/generate-bulk")
+async def generate_bulk_payroll(data: BulkPayrollCreate, request: Request):
+    user = await get_current_user(request)
+    if user["role"] not in [UserRole.ADMIN.value, UserRole.HR.value]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    employees = await db.employees.find({"org_id": user["org_id"]}, {"_id": 0}).to_list(1000)
+    
+    generated = 0
+    skipped = 0
+    errors = []
+    
+    for emp in employees:
+        existing = await db.payroll.find_one({
+            "employee_id": emp["id"],
+            "month": data.month,
+            "year": data.year
+        })
+        if existing:
+            skipped += 1
+            continue
+        
+        gross = emp.get("salary_basic", 0) + emp.get("salary_hra", 0) + emp.get("salary_allowances", 0)
+        if gross <= 0:
+            skipped += 1
+            continue
+        
+        emp_user = await db.users.find_one({"id": emp["user_id"]}, {"_id": 0})
+        payroll = generate_payroll_for_employee(emp, emp_user, user["org_id"], data.month, data.year)
+        await db.payroll.insert_one(payroll)
+        generated += 1
+    
+    return {
+        "message": f"Bulk payroll complete",
+        "generated": generated,
+        "skipped": skipped,
+        "total_employees": len(employees)
+    }
     
     return PayrollResponse(**{k: v for k, v in payroll.items() if k != "_id"})
 
@@ -1231,7 +1329,17 @@ async def list_payroll(
         query["year"] = year
     
     payrolls = await db.payroll.find(query, {"_id": 0}).sort([("year", -1), ("month", -1)]).to_list(1000)
-    return [PayrollResponse(**p) for p in payrolls]
+    result = []
+    for p in payrolls:
+        p.setdefault("federal_tax", p.get("tds", 0))
+        p.setdefault("state_tax", 0)
+        p.setdefault("social_security_employee", p.get("pf_employee", 0))
+        p.setdefault("social_security_employer", p.get("pf_employer", 0))
+        p.setdefault("medicare_employee", p.get("esi_employee", 0))
+        p.setdefault("medicare_employer", p.get("esi_employer", 0))
+        p.setdefault("state_code", None)
+        result.append(PayrollResponse(**{k: v for k, v in p.items() if k in PayrollResponse.__fields__}))
+    return result
 
 @api_router.get("/payroll/{payroll_id}", response_model=PayrollResponse)
 async def get_payroll(payroll_id: str, request: Request):
@@ -1247,7 +1355,14 @@ async def get_payroll(payroll_id: str, request: Request):
     if not payroll:
         raise HTTPException(status_code=404, detail="Payroll not found")
     
-    return PayrollResponse(**payroll)
+    payroll.setdefault("federal_tax", payroll.get("tds", 0))
+    payroll.setdefault("state_tax", 0)
+    payroll.setdefault("social_security_employee", payroll.get("pf_employee", 0))
+    payroll.setdefault("social_security_employer", payroll.get("pf_employer", 0))
+    payroll.setdefault("medicare_employee", payroll.get("esi_employee", 0))
+    payroll.setdefault("medicare_employer", payroll.get("esi_employer", 0))
+    payroll.setdefault("state_code", None)
+    return PayrollResponse(**{k: v for k, v in payroll.items() if k in PayrollResponse.__fields__})
 
 # ===================== RECRUITMENT ROUTES =====================
 @api_router.post("/jobs", response_model=JobPostingResponse)
@@ -1858,6 +1973,90 @@ async def get_employee_dashboard_stats(request: Request):
         "attendance_this_month": attendance_count,
         "leave_balance": leave_balance,
         "pending_leaves": pending_leaves
+    }
+
+@api_router.get("/dashboard/analytics")
+async def get_dashboard_analytics(request: Request):
+    """Get comprehensive analytics for admin dashboard with charts data"""
+    user = await get_current_user(request)
+    if user["role"] not in [UserRole.SUPER_ADMIN.value, UserRole.ADMIN.value, UserRole.HR.value]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    org_id = user.get("org_id")
+    if not org_id:
+        return {"attendance_trend": [], "leave_distribution": [], "payroll_trend": [], "recruitment_pipeline": []}
+    
+    now = datetime.now(timezone.utc)
+    
+    # Attendance trend (last 7 days)
+    attendance_trend = []
+    total_employees = await db.employees.count_documents({"org_id": org_id})
+    for i in range(6, -1, -1):
+        d = (now - timedelta(days=i)).strftime("%Y-%m-%d")
+        present = await db.attendance.count_documents({"org_id": org_id, "date": d, "clock_in": {"$ne": None}})
+        attendance_trend.append({
+            "date": d,
+            "day": (now - timedelta(days=i)).strftime("%a"),
+            "present": present,
+            "absent": max(0, total_employees - present),
+            "total": total_employees
+        })
+    
+    # Leave distribution (by type + status)
+    leave_types = {"CL": "Casual", "SL": "Sick", "PL": "Privilege"}
+    leave_distribution = []
+    for code, name in leave_types.items():
+        count = await db.leaves.count_documents({"org_id": org_id, "leave_type": code})
+        approved = await db.leaves.count_documents({"org_id": org_id, "leave_type": code, "status": "approved"})
+        pending = await db.leaves.count_documents({"org_id": org_id, "leave_type": code, "status": "pending"})
+        rejected = await db.leaves.count_documents({"org_id": org_id, "leave_type": code, "status": "rejected"})
+        leave_distribution.append({"type": name, "code": code, "total": count, "approved": approved, "pending": pending, "rejected": rejected})
+    
+    # Payroll trend (last 6 months)
+    payroll_trend = []
+    for i in range(5, -1, -1):
+        m = now.month - i
+        y = now.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        month_payrolls = await db.payroll.find({"org_id": org_id, "month": m, "year": y}, {"_id": 0}).to_list(1000)
+        total_gross = sum(p.get("gross_salary", 0) for p in month_payrolls)
+        total_net = sum(p.get("net_salary", 0) for p in month_payrolls)
+        total_deductions = sum(p.get("total_deductions", 0) for p in month_payrolls)
+        month_names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+        payroll_trend.append({
+            "month": month_names[m - 1],
+            "year": y,
+            "gross": total_gross,
+            "net": total_net,
+            "deductions": total_deductions,
+            "count": len(month_payrolls)
+        })
+    
+    # Recruitment pipeline
+    jobs = await db.jobs.find({"org_id": org_id, "is_active": True}, {"_id": 0}).to_list(100)
+    pipeline_stages = {"applied": 0, "screening": 0, "interview": 0, "offer": 0, "hired": 0, "rejected": 0}
+    for job in jobs:
+        candidates = await db.candidates.find({"job_id": job["id"]}, {"_id": 0}).to_list(1000)
+        for c in candidates:
+            stage = c.get("stage", "applied")
+            if stage in pipeline_stages:
+                pipeline_stages[stage] += 1
+    
+    recruitment_pipeline = [{"stage": k.capitalize(), "count": v} for k, v in pipeline_stages.items() if k != "rejected"]
+    
+    return {
+        "attendance_trend": attendance_trend,
+        "leave_distribution": leave_distribution,
+        "payroll_trend": payroll_trend,
+        "recruitment_pipeline": recruitment_pipeline,
+        "summary": {
+            "total_employees": total_employees,
+            "total_payroll_this_month": sum(p.get("net_salary", 0) for p in await db.payroll.find({"org_id": org_id, "month": now.month, "year": now.year}, {"_id": 0}).to_list(1000)),
+            "open_positions": len(jobs),
+            "total_candidates": sum(pipeline_stages.values())
+        }
     }
 
 # ===================== HEALTH CHECK =====================

@@ -5,6 +5,7 @@ import { Toaster } from "./components/ui/sonner";
 
 // Auth Context
 import { AuthProvider } from "./contexts/AuthContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { ProtectedRoute, PublicRoute } from "./components/ProtectedRoute";
 
 // Layout
@@ -29,6 +30,7 @@ import SubscriptionPage from "./pages/subscription/SubscriptionPage";
 import TimesheetPage from "./pages/timesheet/TimesheetPage";
 import TimesheetAdminPage from "./pages/timesheet/TimesheetAdminPage";
 import ProjectsPage from "./pages/projects/ProjectsPage";
+import CalendarPage from "./pages/calendar/CalendarPage";
 
 // Router wrapper to handle OAuth callback synchronously
 function AppRouter() {
@@ -75,6 +77,7 @@ function AppRouter() {
         <Route path="/employees/new" element={<EmployeesPage />} />
         <Route path="/employees/:id" element={<EmployeeDetailPage />} />
         <Route path="/attendance" element={<AttendancePage />} />
+        <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/leaves" element={<LeavesPage />} />
         <Route path="/payroll" element={<PayrollPage />} />
         <Route path="/recruitment" element={<RecruitmentPage />} />
@@ -94,12 +97,14 @@ function AppRouter() {
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRouter />
-      </BrowserRouter>
-      <Toaster position="top-right" />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRouter />
+        </BrowserRouter>
+        <Toaster position="top-right" />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

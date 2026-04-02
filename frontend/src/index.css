@@ -50,6 +50,30 @@ code {
         --success: 142 71% 45%;
         --warning: 45 93% 47%;
         --danger: 0 84% 60%;
+        --chart-grid: #e2e8f0;
+    }
+
+    .dark {
+        --background: 222 47% 8%;
+        --foreground: 210 40% 98%;
+        --card: 222 47% 11%;
+        --card-foreground: 210 40% 98%;
+        --popover: 222 47% 11%;
+        --popover-foreground: 210 40% 98%;
+        --primary: 224 100% 50%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 215 25% 40%;
+        --secondary-foreground: 0 0% 100%;
+        --muted: 215 25% 17%;
+        --muted-foreground: 215 16% 65%;
+        --accent: 215 25% 17%;
+        --accent-foreground: 210 40% 98%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 215 25% 22%;
+        --input: 215 25% 22%;
+        --ring: 224 100% 50%;
+        --chart-grid: #334155;
     }
 }
 
@@ -72,9 +96,17 @@ code {
     background: #f1f5f9;
 }
 
+.dark ::-webkit-scrollbar-track {
+    background: #1e293b;
+}
+
 ::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: #475569;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -91,7 +123,7 @@ code {
 }
 
 .table-container th {
-    @apply sticky top-0 bg-white z-10;
+    @apply sticky top-0 bg-white dark:bg-slate-800 z-10;
 }
 
 /* Animation utilities */
