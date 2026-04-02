@@ -1,7 +1,7 @@
 # TalentOps HRMS SaaS - Product Requirements Document
 
 ## Original Problem Statement
-Build a production-ready multi-tenant HRMS SaaS application similar to BambooHR with Employee Management, Attendance, Leave Management, US Payroll, Recruitment ATS, Timesheet Management, Dashboard Analytics, Employee Self-Service Portal, Dark Mode, Calendar Integration, and Mobile-Responsive Design.
+Build a production-ready multi-tenant HRMS SaaS application similar to BambooHR with Employee Management, Attendance, Leave Management, US Payroll, Recruitment ATS, Timesheet Management, Dashboard Analytics, Employee Self-Service Portal, Dark Mode, Calendar Integration, Mobile-Responsive Design, Plan-Based Feature Gating, and Audit Logs.
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind CSS + Recharts
@@ -15,60 +15,56 @@ Build a production-ready multi-tenant HRMS SaaS application similar to BambooHR 
 - [x] JWT auth with secure cookies
 - [x] Role-based access (super_admin, admin, hr, employee)
 - [x] Organization onboarding flow
-- [x] Demo accounts on login page
 
-### Employee Management
-- [x] CRUD employees with profiles, state_code field for US tax
+### Subscription & Feature Gating (April 2, 2026)
+- [x] 4 plan tiers: Free Trial ($0, 5 emp), Starter ($49, 25 emp), Professional ($99, 100 emp), Enterprise ($199, unlimited)
+- [x] FeatureGateMiddleware blocks gated routes with 403 PLAN_UPGRADE_REQUIRED
+- [x] Employee limit enforcement on employee creation
+- [x] Trial expiry checking (14-day free trial)
+- [x] Frontend FeatureGate component shows lock screen with upgrade CTA
+- [x] Sidebar lock icons on gated features
+- [x] PlanContext provides hasFeature() and canAddEmployee() across app
+- [x] Mocked Razorpay payment with instant verification
+- [x] Plan cards with USD pricing and correct feature lists
 
-### Employee Self-Service Portal (April 2, 2026)
-- [x] /profile page with header card (name, designation, department, employee code, state badge)
-- [x] Profile tab: Edit phone, address, emergency contact, state (dropdown with all 51 US states)
-- [x] Attendance tab: Attendance history table (date, clock in/out, hours)
-- [x] Leaves tab: Leave balance cards + leave history table
-- [x] Payroll tab: Pay stubs table with PDF download
-- [x] "My Profile" sidebar nav for employees
-- [x] Backend: GET /api/profile, PUT /api/profile, GET /api/profile/history
+### Feature Access by Plan
+| Feature | Free Trial | Starter | Professional | Enterprise |
+|---------|-----------|---------|-------------|------------|
+| Employees | 5 max | 25 max | 100 max | Unlimited |
+| Attendance | Yes | Yes | Yes | Yes |
+| Leaves | Yes | Yes | Yes | Yes |
+| Calendar | Yes | Yes | Yes | Yes |
+| Payroll | No | Yes | Yes | Yes |
+| Recruitment | No | No | Yes | Yes |
+| Timesheets | No | No | Yes | Yes |
+| Projects | No | No | Yes | Yes |
+| Bulk Payroll | No | No | Yes | Yes |
+| Audit Logs | No | No | No | Yes |
 
-### Attendance & Calendar
-- [x] Clock-in/out with attendance history
-- [x] Calendar page: month view with attendance + leave overlay
-- [x] Summary stats (present, absent, on leave, pending)
+### Audit Logs (Enterprise, April 2, 2026)
+- [x] Logs all CRUD actions (employee creation, leave approval, payroll generation, subscription upgrades)
+- [x] Admin-only /audit-logs page with filter dropdowns (action, resource type)
+- [x] Pagination support
+- [x] Color-coded action badges (CREATE, APPROVE, REJECT, UPGRADE, etc.)
 
-### Leave Management
-- [x] Leave policies (CL 12, SL 12, PL 15), approval workflow, balance deduction
+### Employee Self-Service Portal
+- [x] /profile page with 4 tabs (Profile, Attendance, Leaves, Payroll)
+- [x] Editable: phone, address, emergency contact, US state for tax
+- [x] Combined history view with pay stub PDF downloads
 
-### US Payroll System (April 2, 2026)
-- [x] Federal Income Tax (progressive brackets 10%-37%)
-- [x] Social Security (6.2% employee + 6.2% employer, $168,600 wage base)
-- [x] Medicare (1.45% + 0.9% additional over $200k)
-- [x] State Tax (configurable per employee, 51 states with rates)
-- [x] Bulk payroll generation (all employees at once)
-- [x] PDF pay stub download (jsPDF)
+### US Payroll System
+- [x] Federal Tax, Social Security, Medicare, configurable State Tax
+- [x] Bulk payroll generation, PDF pay stubs
 
-### Recruitment ATS
-- [x] Job postings, candidate pipeline (Kanban view)
+### Dashboard Analytics
+- [x] 4 Recharts charts (attendance, leave, payroll, recruitment)
 
-### Timesheet Management
-- [x] Employee weekly entry, Admin approval/rejection, Reports, CSV/PDF export
+### Dark Mode & Calendar
+- [x] Theme toggle, localStorage persistence
+- [x] Calendar month view with attendance/leave overlay
 
-### Dashboard Analytics (April 2, 2026)
-- [x] 4 stat cards + 4 Recharts charts (attendance, leave, payroll, recruitment)
-- [x] Quick action cards
-
-### Dark Mode (April 2, 2026)
-- [x] ThemeContext with localStorage persistence
-- [x] CSS variables for light/dark themes across all pages
-
-### Mobile-Responsive (April 2, 2026)
-- [x] Hamburger menu sidebar with overlay
-- [x] Cards stack vertically on mobile
-- [x] Touch-friendly button sizing (min-height: 40px)
-- [x] Responsive tables with horizontal scroll
-- [x] Calendar grid adapts to mobile viewports
-
-### UI Changes
-- [x] Google sign-in button removed from login page
-- [x] Currency changed from ₹ (INR) to $ (USD) across all pages
+### Mobile-Responsive
+- [x] Hamburger sidebar, stacking cards, touch-friendly buttons, responsive tables
 
 ## Prioritized Backlog
 
@@ -78,11 +74,9 @@ Build a production-ready multi-tenant HRMS SaaS application similar to BambooHR 
 - [ ] Employee org hierarchy view
 
 ### P2 - Medium Priority
-- [ ] Mocked Razorpay subscription billing
-- [ ] Audit logs for all actions
-- [ ] Advanced reporting & analytics
 - [ ] Slack/Teams webhook notifications
 - [ ] Background jobs for payroll processing
+- [ ] Advanced reporting & analytics
 
 ## Test Credentials
 - Super Admin: admin@talentops.com / admin123
@@ -93,11 +87,12 @@ Build a production-ready multi-tenant HRMS SaaS application similar to BambooHR 
 All prefixed with `/api/`:
 - `/auth/*` - Authentication
 - `/profile`, `/profile/history` - Employee self-service
-- `/employees/*` - Employee CRUD
+- `/employees/*` - Employee CRUD (with limit enforcement)
 - `/attendance/*` - Attendance tracking
 - `/leaves/*` - Leave management
-- `/payroll/*` - US Payroll (generate, generate-bulk, states, list)
-- `/jobs/*`, `/candidates/*` - Recruitment
-- `/projects/*`, `/timesheets/*` - Timesheet management
+- `/payroll/*` - US Payroll (gated: Starter+)
+- `/jobs/*`, `/candidates/*` - Recruitment (gated: Professional+)
+- `/timesheets/*`, `/projects/*` - Timesheet management (gated: Professional+)
+- `/audit-logs` - Audit logs (gated: Enterprise)
+- `/subscription/*` - Plans, checkout, verify, current
 - `/dashboard/*` - Stats, analytics
-- `/subscription/*` - Subscription billing
