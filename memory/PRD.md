@@ -2,151 +2,110 @@
 
 ## Original Problem Statement
 Build a production-ready multi-tenant HRMS SaaS application similar to BambooHR with:
-- Employee Management (CRUD, profiles, org hierarchy)
-- Attendance System (Clock-in/out, shift management, logs)
-- Leave Management (Policies CL/SL/PL, approval workflow, balance tracking)
-- Payroll System (India-specific: PF, ESI, TDS, payslip PDF)
-- Recruitment ATS (Job postings, candidate pipeline, resume upload)
-- Timesheet Management (Employee entry, Admin approval, Reports, CSV/PDF export)
-- Multi-tenant architecture with organization-based data isolation
-- Subscription billing (mocked Razorpay)
-
-## User Choices
-- Tech Stack: React + FastAPI + MongoDB (existing stack)
-- Authentication: JWT-based custom auth + Emergent Google OAuth
-- Payment: Mocked Razorpay flow
-- Storage: Built-in object storage (Emergent)
-- PDF: Client-side generation with jsPDF
+- Employee Management, Attendance, Leave Management, Payroll (US), Recruitment ATS
+- Timesheet Management with Admin approval, Reports, CSV/PDF export
+- Multi-tenant architecture, Role-based access, Dark mode, Calendar integration
+- Dashboard analytics with charts (attendance, leave, payroll, recruitment)
 
 ## Architecture
-### Backend (FastAPI + MongoDB)
-- `/app/backend/server.py` - Main API with all routes (~1956 lines)
-- Collections: users, organizations, employees, attendance, leaves, leave_balances, leave_policies, payroll, jobs, candidates, projects, timesheets, files, subscription_logs, login_attempts
-- Multi-tenant: All queries scoped by org_id
-- Auth: JWT with httpOnly cookies (secure, samesite=none for cross-origin)
-
-### Frontend (React + Shadcn UI)
-- Auth: Login, Register, Onboarding pages
-- Dashboard: Admin dashboard with stats, Employee dashboard
-- Modules: Employees, Attendance, Leaves, Payroll, Recruitment, Timesheet, Projects, Settings, Subscription
-- Components: Reusable Shadcn UI components from /app/frontend/src/components/ui/
-
-## User Personas
-1. **Super Admin** - Platform administrator, multi-tenant management
-2. **Admin/HR** - Organization administrator, full access to org features
-3. **Employee** - Self-service portal (attendance, leaves, timesheets, payslips)
+- **Frontend**: React + Shadcn UI + Tailwind CSS + Recharts
+- **Backend**: FastAPI + MongoDB
+- **Auth**: JWT with httpOnly cookies (Google OAuth removed per user request)
 
 ## What's Been Implemented
 
-### Authentication & Authorization (April 2, 2026)
-- [x] JWT-based login/register with secure cookies
-- [x] Emergent Google OAuth integration
-- [x] Role-based access control (super_admin, admin, hr, employee)
-- [x] Organization-level user management
-- [x] Brute force protection (5 attempts, 15-min lockout)
-
-### Organization Management
-- [x] Organization creation with 14-day free trial
-- [x] Onboarding flow for new users
-- [x] Organization settings (name, domain, industry)
+### Core Infrastructure
+- [x] Multi-tenant architecture (org_id scoping)
+- [x] JWT auth with secure cookies
+- [x] Role-based access (super_admin, admin, hr, employee)
+- [x] Organization onboarding flow
+- [x] Demo accounts on login page
 
 ### Employee Management
-- [x] CRUD employees with profiles
-- [x] Department and designation management
-- [x] Salary structure (basic, HRA, allowances)
+- [x] CRUD employees with profiles, state_code field
 
-### Attendance System
-- [x] Clock-in / Clock-out functionality
-- [x] Attendance calendar view
-- [x] Attendance history with filters
+### Attendance & Calendar
+- [x] Clock-in/out with attendance history
+- [x] Calendar page: month view with attendance + leave overlay
+- [x] Summary stats (present, absent, on leave, pending)
 
-### Leave Management (Validated April 2, 2026)
-- [x] Leave policies (CL 12, SL 12, PL 15)
-- [x] Leave application workflow with balance checking
-- [x] Admin approval with balance deduction
-- [x] Leave rejection
-- [x] Leave balance tracking per year
+### Leave Management
+- [x] Leave policies (CL 12, SL 12, PL 15), approval workflow, balance deduction
 
-### Payroll System - India (Validated April 2, 2026)
-- [x] Salary structure management (Basic + HRA + Allowances)
-- [x] PF calculation (12% of basic, max 15,000 ceiling)
-- [x] ESI calculation (0.75% employee, 3.25% employer, if gross <= 21,000)
-- [x] Professional Tax (Karnataka rates)
-- [x] TDS calculation (new tax regime slabs)
-- [x] Client-side PDF payslip generation with jsPDF
-- [x] Payroll listing with filters
+### US Payroll System (April 2, 2026)
+- [x] Federal Income Tax (progressive brackets 10%-37%)
+- [x] Social Security (6.2% employee + 6.2% employer, $168,600 wage base)
+- [x] Medicare (1.45% + 0.9% additional over $200k)
+- [x] State Tax (configurable per employee, 51 states with rates)
+- [x] Bulk payroll generation (all employees at once)
+- [x] Individual payroll generation
+- [x] PDF pay stub download (jsPDF)
+- [x] GET /api/payroll/states endpoint for state list
 
-### Recruitment (ATS) (Validated April 2, 2026)
-- [x] Job postings with details (title, dept, location, type)
-- [x] Candidate pipeline (Kanban view)
-- [x] Stage management (applied -> screening -> interview -> offer -> hired)
-- [x] Add/manage candidates per job
+### Recruitment ATS
+- [x] Job postings, candidate pipeline (Kanban view)
 
-### Timesheet Management (Validated April 2, 2026)
-- [x] Employee weekly timesheet entry by project
-- [x] Week navigation (prev/next/today)
-- [x] Add/remove projects from weekly timesheet
-- [x] Save, submit, delete entries
-- [x] Admin project management (create projects)
-- [x] Admin timesheet approval/rejection with feedback
-- [x] Admin timesheet history with filters
-- [x] Admin reports dashboard (date range, summary cards, project breakdown)
-- [x] CSV export (employee & admin)
-- [x] PDF export with branded layout (employee & admin)
+### Timesheet Management
+- [x] Employee weekly entry, Admin approval/rejection, Reports, CSV/PDF export
 
-### SaaS Features
-- [x] Multi-tenant architecture (org_id in all collections)
-- [x] Subscription plans (Free Trial, Starter, Professional, Enterprise)
-- [x] Mocked Razorpay payment flow
-- [x] Plan-based pricing display
+### Dashboard Analytics (April 2, 2026)
+- [x] 4 stat cards (employees, attendance, leaves, positions)
+- [x] Attendance trend (bar chart, last 7 days)
+- [x] Leave distribution (donut chart)
+- [x] Payroll cost trend (line chart, last 6 months)
+- [x] Recruitment pipeline (horizontal bar chart)
+- [x] Quick action cards
 
-### UI/UX
-- [x] Modern SaaS UI (Shadcn components, Tailwind CSS)
-- [x] Sidebar navigation with role-based menu items
-- [x] Responsive design
-- [x] Toast notifications (Sonner)
-- [x] Demo credentials shown on login page
+### Dark Mode (April 2, 2026)
+- [x] ThemeContext with localStorage persistence
+- [x] CSS variables for light/dark themes
+- [x] Theme toggle button in sidebar
+- [x] All pages support dark mode
+
+### Calendar Integration (April 2, 2026)
+- [x] Full month calendar view
+- [x] Attendance badges (P=Present, A=Absent)
+- [x] Leave badges (CL, SL, PL, pending)
+- [x] Today highlight, month navigation
+- [x] Summary stat cards
+
+### UI Changes (April 2, 2026)
+- [x] Google sign-in button removed from login page
 
 ## Prioritized Backlog
 
-### P0 - Critical
-- [ ] File uploads for employee documents and resumes (Object storage ready)
-
 ### P1 - High Priority
-- [ ] Email notifications via Resend (leave approvals, timesheet status)
-- [ ] Shift management for attendance
+- [ ] File uploads for employee documents and resumes
+- [ ] Email notifications (Resend integration)
+- [ ] Employee state_code editing in employee detail page
 - [ ] Employee org hierarchy view
-- [ ] Bulk payroll generation (all employees at once)
 
 ### P2 - Medium Priority
+- [ ] Mocked Razorpay subscription billing
 - [ ] Audit logs for all actions
-- [ ] Background jobs (email, payroll processing)
-- [ ] Advanced reporting & analytics dashboard
+- [ ] Advanced reporting & analytics
 - [ ] Employee self-service profile updates
-- [ ] Rate limiting on APIs
 
 ### P3 - Nice to Have
 - [ ] Mobile-responsive improvements
-- [ ] Dark mode theme
-- [ ] Calendar integration
 - [ ] Slack/Teams notifications
+- [ ] Background jobs for payroll processing
 
 ## Test Credentials
-- Super Admin: admin@talentops.com / admin123 (Test Organization)
-- HR Admin: hr@acmecorp.com / password123 (Acme Corporation)
-- Employee: john.doe@acmecorp.com / employee123 (Acme Corporation)
+- Super Admin: admin@talentops.com / admin123
+- HR Admin: hr@acmecorp.com / password123
+- Employee: john.doe@acmecorp.com / employee123
 
 ## API Endpoints
-All routes prefixed with `/api/`:
-- `/auth/*` - Authentication (login, register, logout, me, refresh, google)
-- `/organizations/*` - Organization management
+All prefixed with `/api/`:
+- `/auth/*` - Authentication
 - `/employees/*` - Employee CRUD
 - `/attendance/*` - Attendance tracking
-- `/leaves/*` - Leave management (apply, approve, reject, balance)
-- `/payroll/*` - Payroll processing (generate, list, get)
+- `/leaves/*` - Leave management
+- `/payroll/*` - US Payroll (generate, generate-bulk, states, list)
 - `/jobs/*` - Job postings
 - `/candidates/*` - Candidate management
 - `/projects/*` - Project management
-- `/timesheets/*` - Timesheet CRUD, submit, status update
+- `/timesheets/*` - Timesheet CRUD
+- `/dashboard/*` - Stats, employee-stats, analytics
 - `/subscription/*` - Subscription billing
-- `/upload` - File upload
