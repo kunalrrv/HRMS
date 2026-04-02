@@ -81,15 +81,15 @@ export default function DashboardPage() {
     return (
       <div className="animate-fade-in">
         <Card className="border border-slate-200 bg-amber-50">
-          <CardContent className="flex items-center gap-4 p-6">
-            <AlertCircle className="h-8 w-8 text-amber-600" />
-            <div>
+          <CardContent className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-6">
+            <AlertCircle className="h-8 w-8 text-amber-600 flex-shrink-0" />
+            <div className="flex-1">
               <h3 className="font-semibold text-amber-900">No Organization Found</h3>
               <p className="text-sm text-amber-700">Please set up your organization to continue.</p>
             </div>
             <Button 
               onClick={() => navigate('/onboarding')}
-              className="ml-auto bg-amber-600 hover:bg-amber-700"
+              className="bg-amber-600 hover:bg-amber-700 w-full sm:w-auto"
               data-testid="setup-org-btn"
             >
               Set Up Organization

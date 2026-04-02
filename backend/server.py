@@ -434,8 +434,8 @@ async def register(data: UserCreate, response: Response):
     access_token = create_access_token(user_id, email, user["role"], user["org_id"])
     refresh_token = create_refresh_token(user_id)
     
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600, path="/")
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600, path="/")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True, samesite="none", max_age=604800, path="/")
     
     return {"id": user_id, "email": email, "name": data.name, "role": user["role"], "org_id": user["org_id"]}
 
@@ -473,8 +473,8 @@ async def login(data: UserLogin, response: Response, request: Request):
     access_token = create_access_token(user["id"], email, user["role"], user.get("org_id"))
     refresh_token = create_refresh_token(user["id"])
     
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600, path="/")
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600, path="/")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True, samesite="none", max_age=604800, path="/")
     
     return {
         "id": user["id"],
@@ -510,7 +510,7 @@ async def refresh_token(request: Request, response: Response):
             raise HTTPException(status_code=401, detail="User not found")
         
         access_token = create_access_token(user["id"], user["email"], user["role"], user.get("org_id"))
-        response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600, path="/")
+        response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600, path="/")
         return {"message": "Token refreshed"}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Refresh token expired")
@@ -1437,8 +1437,9 @@ async def health():
 app.include_router(api_router)
 
 # CORS Configuration
-frontend_url = os.environ.get('FRONTEND_URL', os.environ.get('CORS_ORIGINS', '*'))
-origins = frontend_url.split(',') if frontend_url != '*' else ["*"]
+frontend_url = os.environ.get('FRONTEND_URL', 'https://talent-ops-12.preview.emergentagent.com')
+cors_origins = os.environ.get('CORS_ORIGINS', frontend_url)
+origins = [o.strip() for o in cors_origins.split(',') if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
