@@ -517,6 +517,104 @@ async def refresh_token(request: Request, response: Response):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
+class GoogleCallbackRequest(BaseModel):
+    session_id: str
+
+@api_router.post("/auth/google/callback")
+async def google_oauth_callback(data: GoogleCallbackRequest, response: Response):
+    """Handle Google OAuth callback - exchange session_id for user data"""
+    try:
+        # Call Emergent Auth to get session data
+        auth_response = requests.get(
+            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+            headers={"X-Session-ID": data.session_id},
+            timeout=30
+        )
+        
+        if auth_response.status_code != 200:
+            raise HTTPException(status_code=401, detail="Invalid session")
+        
+        session_data = auth_response.json()
+        email = session_data.get("email", "").lower()
+        name = session_data.get("name", "")
+        picture = session_data.get("picture", "")
+        session_token = session_data.get("session_token", "")
+        
+        if not email:
+            raise HTTPException(status_code=400, detail="Email not provided by Google")
+        
+        # Check if user exists
+        existing_user = await db.users.find_one({"email": email})
+        
+        if existing_user:
+            # Update existing user
+            user_id = existing_user["id"]
+            await db.users.update_one(
+                {"email": email},
+                {"$set": {
+                    "name": name or existing_user.get("name"),
+                    "picture": picture,
+                    "google_session_token": session_token,
+                    "last_login": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+        else:
+            # Create new user
+            user_id = str(uuid.uuid4())
+            user = {
+                "id": user_id,
+                "email": email,
+                "name": name or email.split("@")[0],
+                "password_hash": None,  # No password for Google users
+                "role": UserRole.EMPLOYEE.value,
+                "org_id": None,
+                "employee_id": None,
+                "picture": picture,
+                "google_session_token": session_token,
+                "auth_provider": "google",
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.users.insert_one(user)
+            user.pop("_id", None)
+            user.pop("password_hash", None)
+        
+        # Store session in database
+        await db.user_sessions.update_one(
+            {"user_id": user_id},
+            {
+                "$set": {
+                    "session_token": session_token,
+                    "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+            },
+            upsert=True
+        )
+        
+        # Create JWT tokens
+        access_token = create_access_token(user_id, email, user.get("role", UserRole.EMPLOYEE.value), user.get("org_id"))
+        refresh_token_val = create_refresh_token(user_id)
+        
+        # Set cookies
+        response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600, path="/")
+        response.set_cookie(key="refresh_token", value=refresh_token_val, httponly=True, secure=True, samesite="none", max_age=604800, path="/")
+        response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True, samesite="none", max_age=604800, path="/")
+        
+        return {
+            "id": user_id,
+            "email": email,
+            "name": user.get("name"),
+            "role": user.get("role"),
+            "org_id": user.get("org_id"),
+            "employee_id": user.get("employee_id"),
+            "picture": picture
+        }
+        
+    except requests.RequestException as e:
+        logger.error(f"Google OAuth error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to verify Google session")
+
 # ===================== ORGANIZATION ROUTES =====================
 @api_router.post("/organizations", response_model=OrganizationResponse)
 async def create_organization(data: OrganizationCreate, request: Request):
