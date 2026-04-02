@@ -16,7 +16,8 @@ import {
   CreditCard,
   ChevronDown,
   ClipboardList,
-  FolderKanban
+  FolderKanban,
+  ClipboardCheck
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import {
@@ -32,7 +33,8 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'hr', 'employee'] },
   { path: '/employees', label: 'Employees', icon: Users, roles: ['super_admin', 'admin', 'hr'] },
   { path: '/attendance', label: 'Attendance', icon: Clock, roles: ['super_admin', 'admin', 'hr', 'employee'] },
-  { path: '/timesheet', label: 'Timesheet', icon: ClipboardList, roles: ['super_admin', 'admin', 'hr', 'employee'] },
+  { path: '/timesheet', label: 'My Timesheet', icon: ClipboardList, roles: ['super_admin', 'admin', 'hr', 'employee'] },
+  { path: '/timesheet/admin', label: 'Timesheet Mgmt', icon: ClipboardCheck, roles: ['super_admin', 'admin', 'hr'] },
   { path: '/leaves', label: 'Leaves', icon: Calendar, roles: ['super_admin', 'admin', 'hr', 'employee'] },
   { path: '/payroll', label: 'Payroll', icon: DollarSign, roles: ['super_admin', 'admin', 'hr', 'employee'] },
   { path: '/recruitment', label: 'Recruitment', icon: Briefcase, roles: ['super_admin', 'admin', 'hr'] },

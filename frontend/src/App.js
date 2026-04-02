@@ -27,6 +27,7 @@ import RecruitmentPage from "./pages/recruitment/RecruitmentPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import SubscriptionPage from "./pages/subscription/SubscriptionPage";
 import TimesheetPage from "./pages/timesheet/TimesheetPage";
+import TimesheetAdminPage from "./pages/timesheet/TimesheetAdminPage";
 import ProjectsPage from "./pages/projects/ProjectsPage";
 
 // Router wrapper to handle OAuth callback synchronously
@@ -78,6 +79,7 @@ function AppRouter() {
         <Route path="/payroll" element={<PayrollPage />} />
         <Route path="/recruitment" element={<RecruitmentPage />} />
         <Route path="/timesheet" element={<TimesheetPage />} />
+        <Route path="/timesheet/admin" element={<TimesheetAdminPage />} />
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/subscription" element={<SubscriptionPage />} />

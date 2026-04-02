@@ -39,9 +39,13 @@ import {
   Send, 
   Loader2,
   Trash2,
-  Calendar
+  Calendar,
+  Download,
+  FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -241,6 +245,109 @@ export default function TimesheetPage() {
 
   const weekTotalHours = Object.values(editedEntries).reduce((sum, entry) => sum + calculateTotalHours(entry), 0);
 
+  // Export functions
+  const exportWeekToCSV = () => {
+    if (timesheets.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
+    const headers = ['Project', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total', 'Status'];
+    const rows = timesheets.map(t => {
+      const entry = editedEntries[t.id] || t;
+      return [
+        t.project_name,
+        entry.monday_hours,
+        entry.tuesday_hours,
+        entry.wednesday_hours,
+        entry.thursday_hours,
+        entry.friday_hours,
+        entry.saturday_hours,
+        entry.sunday_hours,
+        calculateTotalHours(entry).toFixed(1),
+        t.status
+      ];
+    });
+
+    const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `timesheet_${formatDate(currentWeekStart)}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    
+    toast.success('CSV exported');
+  };
+
+  const exportWeekToPDF = () => {
+    if (timesheets.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFillColor(0, 47, 167);
+    doc.rect(0, 0, 210, 35, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TalentOps', 20, 20);
+    doc.setFontSize(12);
+    doc.text('Weekly Timesheet', 20, 28);
+
+    // Week info
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(11);
+    const weekEnd = new Date(currentWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    doc.text(`Week: ${formatDate(currentWeekStart)} to ${formatDate(weekEnd)}`, 20, 48);
+    doc.text(`Employee: ${user?.name || 'Unknown'}`, 20, 56);
+    doc.text(`Total Hours: ${weekTotalHours.toFixed(1)}`, 20, 64);
+
+    // Table
+    const tableData = timesheets.map(t => {
+      const entry = editedEntries[t.id] || t;
+      return [
+        t.project_name,
+        entry.monday_hours.toString(),
+        entry.tuesday_hours.toString(),
+        entry.wednesday_hours.toString(),
+        entry.thursday_hours.toString(),
+        entry.friday_hours.toString(),
+        entry.saturday_hours.toString(),
+        entry.sunday_hours.toString(),
+        calculateTotalHours(entry).toFixed(1),
+        t.status
+      ];
+    });
+
+    doc.autoTable({
+      startY: 75,
+      head: [['Project', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total', 'Status']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [0, 47, 167] },
+      margin: { left: 10, right: 10 },
+      styles: { fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 40 },
+        9: { cellWidth: 20 }
+      }
+    });
+
+    // Footer
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 280);
+
+    doc.save(`timesheet_${formatDate(currentWeekStart)}.pdf`);
+    toast.success('PDF exported');
+  };
+
   // Filter out projects that are already in this week's timesheet
   const availableProjects = projects.filter(p => !timesheets.find(t => t.project_id === p.id));
 
@@ -252,13 +359,26 @@ export default function TimesheetPage() {
           <h1 className="text-3xl font-bold text-[#0F172A] font-['Chivo']">Timesheet</h1>
           <p className="text-slate-500 mt-1">Track your hours by project</p>
         </div>
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button className="bg-[#002FA7] hover:bg-[#00227A]" data-testid="add-project-btn">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Project
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          {timesheets.length > 0 && (
+            <>
+              <Button variant="outline" onClick={exportWeekToCSV} data-testid="export-csv">
+                <Download className="h-4 w-4 mr-2" />
+                CSV
+              </Button>
+              <Button variant="outline" onClick={exportWeekToPDF} data-testid="export-pdf">
+                <FileText className="h-4 w-4 mr-2" />
+                PDF
+              </Button>
+            </>
+          )}
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button className="bg-[#002FA7] hover:bg-[#00227A]" data-testid="add-project-btn">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Project
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-[400px]">
             <DialogHeader>
               <DialogTitle className="font-['Chivo']">Add Project to Timesheet</DialogTitle>
@@ -303,6 +423,7 @@ export default function TimesheetPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Week Navigation */}
