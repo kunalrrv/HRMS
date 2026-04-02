@@ -1,230 +1,177 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
+import { usePlan } from '../../contexts/PlanContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { Check, CreditCard, Zap, Building2, Users, Loader2 } from 'lucide-react';
+import { CreditCard, Check, ArrowRight, Loader2, Users, AlertTriangle, Crown } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function SubscriptionPage() {
+  const { user } = useAuth();
+  const { planInfo, refreshPlan } = usePlan();
   const [plans, setPlans] = useState([]);
-  const [organization, setOrganization] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [processingPlan, setProcessingPlan] = useState(null);
+  const [upgrading, setUpgrading] = useState(null);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchPlans(); }, []);
 
-  const fetchData = async () => {
+  const fetchPlans = async () => {
     try {
-      const [plansRes, orgRes] = await Promise.all([
-        axios.get(`${API}/subscription/plans`, { withCredentials: true }),
-        axios.get(`${API}/organizations/current`, { withCredentials: true })
-      ]);
-      setPlans(plansRes.data.plans);
-      setOrganization(orgRes.data);
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-    } finally {
-      setLoading(false);
+      const { data } = await axios.get(`${API}/subscription/plans`, { withCredentials: true });
+      setPlans(data.plans);
+    } catch (err) {
+      console.error('Failed to fetch plans:', err);
     }
+    setLoading(false);
   };
 
-  const handleSubscribe = async (planId) => {
-    if (planId === 'free_trial') return;
-    
-    setProcessingPlan(planId);
-
+  const handleUpgrade = async (planId) => {
+    if (planId === planInfo?.plan) return;
+    setUpgrading(planId);
     try {
-      // Create checkout
-      const { data: checkout } = await axios.post(`${API}/subscription/checkout`, {
-        plan: planId
-      }, { withCredentials: true });
-
-      // Mock payment flow
-      toast.info('Processing payment... (Mocked)');
-      
-      // Simulate payment delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Verify payment
+      const { data: order } = await axios.post(`${API}/subscription/checkout`, { plan: planId }, { withCredentials: true });
       await axios.post(`${API}/subscription/verify`, {
         plan: planId,
-        order_id: checkout.order_id,
+        order_id: order.order_id,
         payment_id: `pay_mock_${Date.now()}`,
-        amount: checkout.amount
+        amount: order.amount,
       }, { withCredentials: true });
-
-      toast.success('Subscription activated successfully!');
-      fetchData();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to process subscription');
+      toast.success(`Upgraded to ${planId.replace('_', ' ')}!`);
+      refreshPlan();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Upgrade failed');
     }
-
-    setProcessingPlan(null);
+    setUpgrading(null);
   };
 
-  const getPlanIcon = (planId) => {
-    switch (planId) {
-      case 'free_trial':
-        return <Zap className="h-6 w-6 text-amber-500" />;
-      case 'starter':
-        return <Users className="h-6 w-6 text-blue-500" />;
-      case 'professional':
-        return <Building2 className="h-6 w-6 text-purple-500" />;
-      case 'enterprise':
-        return <CreditCard className="h-6 w-6 text-green-500" />;
-      default:
-        return null;
-    }
+  const currentPlan = planInfo?.plan || 'free_trial';
+  const planOrder = ['free_trial', 'starter', 'professional', 'enterprise'];
+  const planColors = {
+    free_trial: 'border-slate-200 dark:border-slate-700',
+    starter: 'border-blue-200 dark:border-blue-700',
+    professional: 'border-purple-200 dark:border-purple-700',
+    enterprise: 'border-amber-200 dark:border-amber-600',
   };
-
-  const isCurrentPlan = (planId) => {
-    return organization?.subscription_plan === planId;
-  };
-
-  if (loading) {
-    return (
-      <div className="animate-pulse space-y-6">
-        <div className="h-8 w-48 bg-slate-200 rounded" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-96 bg-slate-200 rounded-lg" />
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="animate-fade-in space-y-6">
-      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-[#0F172A] font-['Chivo']">Subscription</h1>
-        <p className="text-slate-500 mt-1">Choose the plan that's right for your team</p>
+        <h1 className="text-3xl font-bold text-[#0F172A] dark:text-white font-['Chivo']">Subscription</h1>
+        <p className="text-slate-500 dark:text-slate-400 mt-1">Manage your plan and billing</p>
       </div>
 
-      {/* Current Plan Banner */}
-      {organization && (
-        <Card className="border border-[#002FA7] bg-blue-50/50">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-600">Current Plan</p>
-              <p className="text-xl font-bold text-[#002FA7]">
-                {organization.subscription_plan.replace('_', ' ').toUpperCase()}
-              </p>
-              {organization.trial_ends_at && (
-                <p className="text-sm text-amber-600 mt-1">
-                  Trial ends on {new Date(organization.trial_ends_at).toLocaleDateString()}
-                </p>
-              )}
+      {/* Current Plan Card */}
+      {planInfo && (
+        <Card className={`border-2 ${planColors[currentPlan]} dark:bg-slate-800`}>
+          <CardContent className="p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-[#002FA7] rounded-lg">
+                  <Crown className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-[#0F172A] dark:text-white font-['Chivo'] capitalize">
+                    {currentPlan.replace('_', ' ')} Plan
+                  </h2>
+                  <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Users className="h-4 w-4" />
+                      {planInfo.employee_count} / {planInfo.limits.max_employees === 999999 ? 'Unlimited' : planInfo.limits.max_employees} employees
+                    </span>
+                    {planInfo.expired && (
+                      <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                        <AlertTriangle className="h-3 w-3 mr-1" /> Expired
+                      </Badge>
+                    )}
+                    {currentPlan === 'free_trial' && planInfo.trial_ends_at && !planInfo.expired && (
+                      <Badge variant="outline" className="dark:border-slate-600 dark:text-slate-300">
+                        Expires {new Date(planInfo.trial_ends_at).toLocaleDateString()}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                {planInfo.limits.features.length} features enabled
+              </div>
             </div>
-            <Badge className="bg-[#002FA7] text-white text-lg px-4 py-2">
-              Active
-            </Badge>
           </CardContent>
         </Card>
       )}
 
       {/* Plans Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {plans.map((plan) => (
-          <Card 
-            key={plan.id} 
-            className={`border relative ${isCurrentPlan(plan.id) ? 'border-[#002FA7] ring-2 ring-[#002FA7]/20' : 'border-slate-200'}`}
-          >
-            {isCurrentPlan(plan.id) && (
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <Badge className="bg-[#002FA7] text-white">Current Plan</Badge>
-              </div>
-            )}
-            <CardHeader className="text-center pb-2">
-              <div className="mx-auto mb-3">
-                {getPlanIcon(plan.id)}
-              </div>
-              <CardTitle className="font-['Chivo']">{plan.name}</CardTitle>
-              <div className="mt-4">
-                <span className="text-4xl font-bold text-[#0F172A]">
-                  ₹{plan.price.toLocaleString()}
-                </span>
-                {plan.price > 0 && (
-                  <span className="text-slate-500">/month</span>
-                )}
-              </div>
-              <CardDescription>{plan.duration}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <ul className="space-y-3">
-                {plan.features.map((feature, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-sm">
-                    <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span className="text-slate-600">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                className={`w-full ${isCurrentPlan(plan.id) ? 'bg-slate-100 text-slate-500' : 'bg-[#002FA7] hover:bg-[#00227A]'}`}
-                disabled={isCurrentPlan(plan.id) || processingPlan === plan.id || plan.id === 'free_trial'}
-                onClick={() => handleSubscribe(plan.id)}
-                data-testid={`subscribe-${plan.id}`}
+      {loading ? (
+        <div className="p-8 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-[#002FA7]" /></div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {plans.map((plan) => {
+            const isCurrent = plan.id === currentPlan;
+            const isLower = planOrder.indexOf(plan.id) <= planOrder.indexOf(currentPlan);
+            return (
+              <Card
+                key={plan.id}
+                data-testid={`plan-${plan.id}`}
+                className={`border-2 dark:bg-slate-800 transition-all ${
+                  isCurrent ? 'border-[#002FA7] ring-2 ring-[#002FA7]/20' : planColors[plan.id]
+                }`}
               >
-                {processingPlan === plan.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : isCurrentPlan(plan.id) ? (
-                  'Current Plan'
-                ) : plan.id === 'free_trial' ? (
-                  'Free'
-                ) : (
-                  'Subscribe'
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg font-['Chivo'] dark:text-white">{plan.name}</CardTitle>
+                    {isCurrent && <Badge className="bg-[#002FA7] text-white">Current</Badge>}
+                  </div>
+                  <CardDescription className="dark:text-slate-400">{plan.duration}</CardDescription>
+                  <div className="mt-2">
+                    <span className="text-3xl font-bold text-[#0F172A] dark:text-white">${plan.price}</span>
+                    {plan.price > 0 && <span className="text-sm text-slate-500 dark:text-slate-400">/month</span>}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 mb-6">
+                    {plan.features.map((feat, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
+                        <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                        {feat}
+                      </li>
+                    ))}
+                  </ul>
+                  {isCurrent ? (
+                    <Button className="w-full" variant="outline" disabled data-testid={`btn-${plan.id}`}>
+                      Current Plan
+                    </Button>
+                  ) : isLower ? (
+                    <Button className="w-full" variant="outline" disabled data-testid={`btn-${plan.id}`}>
+                      Included
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full bg-[#002FA7] hover:bg-[#00227A]"
+                      onClick={() => handleUpgrade(plan.id)}
+                      disabled={!!upgrading}
+                      data-testid={`btn-${plan.id}`}
+                    >
+                      {upgrading === plan.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>Upgrade <ArrowRight className="h-4 w-4 ml-2" /></>
+                      )}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
-      {/* Payment Info */}
-      <Card className="border border-slate-200 bg-amber-50">
-        <CardContent className="p-6">
-          <div className="flex items-start gap-3">
-            <CreditCard className="h-5 w-5 text-amber-600 mt-0.5" />
-            <div>
-              <h3 className="font-semibold text-amber-900">Payment Integration</h3>
-              <p className="text-sm text-amber-700 mt-1">
-                Payment processing is currently in <strong>MOCKED</strong> mode. In production, this would integrate with Razorpay for secure payments.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* FAQ */}
-      <Card className="border border-slate-200">
-        <CardHeader>
-          <CardTitle className="font-['Chivo']">Frequently Asked Questions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h4 className="font-medium text-[#0F172A]">Can I change plans later?</h4>
-            <p className="text-sm text-slate-600 mt-1">
-              Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately.
-            </p>
-          </div>
-          <div>
-            <h4 className="font-medium text-[#0F172A]">What happens after my trial ends?</h4>
-            <p className="text-sm text-slate-600 mt-1">
-              You'll need to subscribe to a paid plan to continue using all features. You can choose any plan that fits your needs.
-            </p>
-          </div>
-          <div>
-            <h4 className="font-medium text-[#0F172A]">Is there a refund policy?</h4>
-            <p className="text-sm text-slate-600 mt-1">
-              We offer a 30-day money-back guarantee on all paid plans.
-            </p>
-          </div>
+      <Card className="border border-slate-200 dark:border-slate-700 bg-blue-50 dark:bg-slate-800">
+        <CardContent className="p-6 text-center text-sm text-slate-600 dark:text-slate-400">
+          <p>Payment is handled via our secure payment gateway (mocked for demo).</p>
+          <p className="mt-1">All plans include a 14-day money-back guarantee.</p>
         </CardContent>
       </Card>
     </div>

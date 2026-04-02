@@ -42,6 +42,73 @@ storage_key = None
 # Create the main app
 app = FastAPI(title="TalentOps HRMS SaaS API")
 
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
+
+class FeatureGateMiddleware(BaseHTTPMiddleware):
+    """Middleware to enforce plan-based feature gating and trial expiry"""
+    GATED_PREFIXES = {
+        "/api/payroll": "payroll",
+        "/api/jobs": "recruitment",
+        "/api/candidates": "recruitment",
+        "/api/timesheets": "timesheets",
+        "/api/projects": "projects",
+        "/api/audit-logs": "audit_logs",
+    }
+    EXEMPT_PATHS = [
+        "/api/auth", "/api/subscription", "/api/organizations", "/api/dashboard",
+        "/api/profile", "/api/employees", "/api/attendance", "/api/leaves",
+        "/api/calendar", "/api/payroll/states", "/api/health", "/api/upload",
+    ]
+
+    async def dispatch(self, request, call_next):
+        path = request.url.path
+        
+        # Skip non-API routes and exempt paths
+        if not path.startswith("/api/") or any(path.startswith(e) for e in self.EXEMPT_PATHS):
+            return await call_next(request)
+        
+        # Check if this path is gated
+        feature = None
+        for prefix, feat in self.GATED_PREFIXES.items():
+            if path.startswith(prefix):
+                feature = feat
+                break
+        
+        if not feature:
+            return await call_next(request)
+        
+        # Try to get user's org from cookie
+        try:
+            token = request.cookies.get("access_token")
+            if not token:
+                return await call_next(request)
+            
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            user = await db.users.find_one({"id": payload.get("sub")}, {"_id": 0})
+            if not user or not user.get("org_id"):
+                return await call_next(request)
+            
+            plan_info = await get_org_plan(user["org_id"])
+            
+            if plan_info["expired"]:
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Your free trial has expired. Please upgrade to continue.", "code": "TRIAL_EXPIRED"}
+                )
+            
+            if feature not in plan_info["limits"]["features"]:
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": f"This feature requires a higher plan. Please upgrade.", "code": "PLAN_UPGRADE_REQUIRED", "feature": feature}
+                )
+        except Exception:
+            pass
+        
+        return await call_next(request)
+
+app.add_middleware(FeatureGateMiddleware)
+
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
@@ -67,6 +134,66 @@ class SubscriptionPlan(str, Enum):
     STARTER = "starter"
     PROFESSIONAL = "professional"
     ENTERPRISE = "enterprise"
+
+# ===================== PLAN LIMITS & FEATURE GATING =====================
+PLAN_LIMITS = {
+    "free_trial": {"max_employees": 5, "features": ["employees", "attendance", "leaves", "calendar", "profile", "dashboard"]},
+    "starter": {"max_employees": 25, "features": ["employees", "attendance", "leaves", "calendar", "profile", "dashboard", "payroll"]},
+    "professional": {"max_employees": 100, "features": ["employees", "attendance", "leaves", "calendar", "profile", "dashboard", "payroll", "recruitment", "timesheets", "projects", "reports", "bulk_payroll"]},
+    "enterprise": {"max_employees": 999999, "features": ["employees", "attendance", "leaves", "calendar", "profile", "dashboard", "payroll", "recruitment", "timesheets", "projects", "reports", "bulk_payroll", "audit_logs", "custom_integrations"]},
+}
+
+FEATURE_ROUTE_MAP = {
+    "/api/payroll": "payroll",
+    "/api/jobs": "recruitment",
+    "/api/candidates": "recruitment",
+    "/api/timesheets": "timesheets",
+    "/api/projects": "projects",
+    "/api/audit-logs": "audit_logs",
+}
+
+async def get_org_plan(org_id: str) -> dict:
+    """Get org's current plan and check trial expiry"""
+    org = await db.organizations.find_one({"id": org_id}, {"_id": 0})
+    if not org:
+        return {"plan": "free_trial", "expired": False, "limits": PLAN_LIMITS["free_trial"]}
+    
+    plan = org.get("subscription_plan", "free_trial")
+    expired = False
+    
+    if plan == "free_trial" and org.get("trial_ends_at"):
+        trial_end = datetime.fromisoformat(org["trial_ends_at"])
+        if datetime.now(timezone.utc) > trial_end:
+            expired = True
+    
+    return {"plan": plan, "expired": expired, "limits": PLAN_LIMITS.get(plan, PLAN_LIMITS["free_trial"]), "org": org}
+
+async def check_employee_limit(org_id: str, plan: str) -> bool:
+    """Check if org can add more employees"""
+    current_count = await db.employees.count_documents({"org_id": org_id})
+    max_allowed = PLAN_LIMITS.get(plan, {}).get("max_employees", 5)
+    return current_count < max_allowed
+
+async def check_feature_access(org_id: str, feature: str) -> bool:
+    """Check if org's plan includes the feature"""
+    plan_info = await get_org_plan(org_id)
+    if plan_info["expired"]:
+        return False
+    return feature in plan_info["limits"]["features"]
+
+async def log_audit(org_id: str, user_id: str, user_email: str, action: str, resource_type: str, resource_id: str = None, details: str = None):
+    """Log an audit event (always logs, but only viewable on Enterprise)"""
+    await db.audit_logs.insert_one({
+        "id": str(uuid.uuid4()),
+        "org_id": org_id,
+        "user_id": user_id,
+        "user_email": user_email,
+        "action": action,
+        "resource_type": resource_type,
+        "resource_id": resource_id,
+        "details": details,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
 
 class CandidateStage(str, Enum):
     APPLIED = "applied"
@@ -827,6 +954,15 @@ async def create_employee(data: EmployeeCreate, request: Request):
     if user["role"] not in [UserRole.ADMIN.value, UserRole.HR.value]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
+    # Check employee limit
+    plan_info = await get_org_plan(user["org_id"])
+    if plan_info["expired"]:
+        raise HTTPException(status_code=403, detail="Your free trial has expired. Please upgrade to continue.")
+    can_add = await check_employee_limit(user["org_id"], plan_info["plan"])
+    if not can_add:
+        max_emp = plan_info["limits"]["max_employees"]
+        raise HTTPException(status_code=403, detail=f"Employee limit reached ({max_emp}). Please upgrade your plan.")
+    
     target_user = await db.users.find_one({"id": data.user_id})
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -852,6 +988,9 @@ async def create_employee(data: EmployeeCreate, request: Request):
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.employees.insert_one(employee)
+    
+    # Audit log
+    await log_audit(user["org_id"], user["id"], user["email"], "CREATE", "employee", employee_id, f"Created employee {target_user['name']}")
     
     # Update user with employee_id
     await db.users.update_one({"id": data.user_id}, {"$set": {"employee_id": employee_id, "org_id": user["org_id"]}})
@@ -1290,6 +1429,8 @@ async def reject_leave(leave_id: str, request: Request):
         {"$set": {"status": LeaveStatus.REJECTED.value, "approved_by": user["id"]}}
     )
     
+    await log_audit(user["org_id"], user["id"], user["email"], "REJECT", "leave", leave_id, f"Rejected leave for employee {leave['employee_id']}")
+    
     return {"message": "Leave rejected"}
 
 @api_router.get("/leaves/balance", response_model=LeaveBalanceResponse)
@@ -1338,6 +1479,8 @@ async def generate_payroll(data: PayrollCreate, request: Request):
     
     payroll = generate_payroll_for_employee(employee, emp_user, user["org_id"], data.month, data.year)
     await db.payroll.insert_one(payroll)
+    
+    await log_audit(user["org_id"], user["id"], user["email"], "GENERATE", "payroll", payroll["id"], f"Generated payroll for {emp_user['name']} - {data.month}/{data.year}")
     
     return PayrollResponse(**{k: v for k, v in payroll.items() if k != "_id"})
 
@@ -1900,15 +2043,15 @@ async def create_checkout(data: SubscriptionUpdate, request: Request):
     order_id = f"order_{uuid.uuid4().hex[:16]}"
     
     plan_prices = {
-        SubscriptionPlan.STARTER.value: 999,
-        SubscriptionPlan.PROFESSIONAL.value: 2499,
-        SubscriptionPlan.ENTERPRISE.value: 4999
+        SubscriptionPlan.STARTER.value: 49,
+        SubscriptionPlan.PROFESSIONAL.value: 99,
+        SubscriptionPlan.ENTERPRISE.value: 199
     }
     
     return {
         "order_id": order_id,
-        "amount": plan_prices.get(data.plan.value, 0) * 100,  # In paise
-        "currency": "INR",
+        "amount": plan_prices.get(data.plan.value, 0) * 100,
+        "currency": "USD",
         "plan": data.plan.value,
         "key_id": "rzp_test_mock"
     }
@@ -1940,7 +2083,51 @@ async def verify_payment(request: Request):
         "created_at": datetime.now(timezone.utc).isoformat()
     })
     
+    await log_audit(user["org_id"], user["id"], user["email"], "UPGRADE", "subscription", None, f"Upgraded to {plan}")
+    
     return {"message": "Subscription activated", "plan": plan}
+
+@api_router.get("/subscription/current")
+async def get_current_subscription(request: Request):
+    """Get current org plan details with limits and feature access"""
+    user = await get_current_user(request)
+    if not user.get("org_id"):
+        return {"plan": "free_trial", "expired": False, "limits": PLAN_LIMITS["free_trial"], "employee_count": 0}
+    
+    plan_info = await get_org_plan(user["org_id"])
+    employee_count = await db.employees.count_documents({"org_id": user["org_id"]})
+    
+    return {
+        "plan": plan_info["plan"],
+        "expired": plan_info["expired"],
+        "limits": plan_info["limits"],
+        "employee_count": employee_count,
+        "trial_ends_at": plan_info["org"].get("trial_ends_at") if plan_info.get("org") else None
+    }
+
+# ===================== AUDIT LOGS =====================
+@api_router.get("/audit-logs")
+async def get_audit_logs(request: Request, page: int = 1, limit: int = 50, action: str = None, resource_type: str = None):
+    user = await get_current_user(request)
+    if user["role"] not in [UserRole.ADMIN.value, UserRole.HR.value]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    query = {"org_id": user["org_id"]}
+    if action:
+        query["action"] = action
+    if resource_type:
+        query["resource_type"] = resource_type
+    
+    total = await db.audit_logs.count_documents(query)
+    skip = (page - 1) * limit
+    logs = await db.audit_logs.find(query, {"_id": 0}).sort("timestamp", -1).skip(skip).limit(limit).to_list(limit)
+    
+    return {
+        "logs": logs,
+        "total": total,
+        "page": page,
+        "pages": (total + limit - 1) // limit
+    }
 
 @api_router.get("/subscription/plans")
 async def get_plans():
@@ -1951,28 +2138,32 @@ async def get_plans():
                 "name": "Free Trial",
                 "price": 0,
                 "duration": "14 days",
-                "features": ["Up to 10 employees", "Basic attendance", "Leave management"]
+                "max_employees": 5,
+                "features": ["Up to 5 employees", "Basic attendance tracking", "Leave management", "Calendar view"]
             },
             {
                 "id": SubscriptionPlan.STARTER.value,
                 "name": "Starter",
-                "price": 999,
+                "price": 49,
                 "duration": "monthly",
-                "features": ["Up to 25 employees", "Full attendance", "Leave management", "Basic payroll"]
+                "max_employees": 25,
+                "features": ["Up to 25 employees", "All Free Trial features", "US Payroll with tax calculations", "PDF pay stubs"]
             },
             {
                 "id": SubscriptionPlan.PROFESSIONAL.value,
                 "name": "Professional",
-                "price": 2499,
+                "price": 99,
                 "duration": "monthly",
-                "features": ["Up to 100 employees", "All Starter features", "Full payroll", "Recruitment ATS", "Email notifications"]
+                "max_employees": 100,
+                "features": ["Up to 100 employees", "All Starter features", "Recruitment ATS", "Timesheet management", "Bulk payroll", "Reports & exports"]
             },
             {
                 "id": SubscriptionPlan.ENTERPRISE.value,
                 "name": "Enterprise",
-                "price": 4999,
+                "price": 199,
                 "duration": "monthly",
-                "features": ["Unlimited employees", "All Professional features", "Custom integrations", "Priority support", "Audit logs"]
+                "max_employees": 999999,
+                "features": ["Unlimited employees", "All Professional features", "Audit logs", "Custom integrations", "Priority support"]
             }
         ]
     }

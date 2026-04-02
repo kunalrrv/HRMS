@@ -5,8 +5,10 @@ import { useTheme } from '../../contexts/ThemeContext';
 import {
   LayoutDashboard, Users, Clock, Calendar as CalendarIcon, DollarSign, Briefcase,
   Settings, LogOut, Menu, X, Building2, CreditCard, ChevronDown,
-  ClipboardList, FolderKanban, ClipboardCheck, Moon, Sun, CalendarDays, UserCircle
+  ClipboardList, FolderKanban, ClipboardCheck, Moon, Sun, CalendarDays, UserCircle,
+  Lock, ScrollText
 } from 'lucide-react';
+import { usePlan } from '../../contexts/PlanContext';
 import { Button } from '../ui/button';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -20,12 +22,13 @@ const navItems = [
   { path: '/employees', label: 'Employees', icon: Users, roles: ['super_admin', 'admin', 'hr'] },
   { path: '/attendance', label: 'Attendance', icon: Clock, roles: ['super_admin', 'admin', 'hr', 'employee'] },
   { path: '/calendar', label: 'Calendar', icon: CalendarDays, roles: ['super_admin', 'admin', 'hr', 'employee'] },
-  { path: '/timesheet', label: 'My Timesheet', icon: ClipboardList, roles: ['super_admin', 'admin', 'hr', 'employee'] },
-  { path: '/timesheet/admin', label: 'Timesheet Mgmt', icon: ClipboardCheck, roles: ['super_admin', 'admin', 'hr'] },
+  { path: '/timesheet', label: 'My Timesheet', icon: ClipboardList, roles: ['super_admin', 'admin', 'hr', 'employee'], feature: 'timesheets' },
+  { path: '/timesheet/admin', label: 'Timesheet Mgmt', icon: ClipboardCheck, roles: ['super_admin', 'admin', 'hr'], feature: 'timesheets' },
   { path: '/leaves', label: 'Leaves', icon: CalendarIcon, roles: ['super_admin', 'admin', 'hr', 'employee'] },
-  { path: '/payroll', label: 'Payroll', icon: DollarSign, roles: ['super_admin', 'admin', 'hr', 'employee'] },
-  { path: '/recruitment', label: 'Recruitment', icon: Briefcase, roles: ['super_admin', 'admin', 'hr'] },
-  { path: '/projects', label: 'Projects', icon: FolderKanban, roles: ['super_admin', 'admin'] },
+  { path: '/payroll', label: 'Payroll', icon: DollarSign, roles: ['super_admin', 'admin', 'hr', 'employee'], feature: 'payroll' },
+  { path: '/recruitment', label: 'Recruitment', icon: Briefcase, roles: ['super_admin', 'admin', 'hr'], feature: 'recruitment' },
+  { path: '/projects', label: 'Projects', icon: FolderKanban, roles: ['super_admin', 'admin'], feature: 'projects' },
+  { path: '/audit-logs', label: 'Audit Logs', icon: ScrollText, roles: ['super_admin', 'admin', 'hr'], feature: 'audit_logs' },
   { path: '/settings', label: 'Settings', icon: Settings, roles: ['super_admin', 'admin'] },
   { path: '/subscription', label: 'Subscription', icon: CreditCard, roles: ['super_admin', 'admin'] },
 ];
@@ -33,6 +36,7 @@ const navItems = [
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { hasFeature } = usePlan();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -68,6 +72,7 @@ export default function Sidebar() {
           {filteredNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path || (item.path !== '/dashboard' && location.pathname.startsWith(item.path + '/'));
+            const isLocked = item.feature && !hasFeature(item.feature);
             return (
               <li key={item.path}>
                 <NavLink
@@ -77,11 +82,14 @@ export default function Sidebar() {
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-150
                     ${isActive
                       ? 'border-l-4 border-[#002FA7] bg-blue-50/50 dark:bg-blue-900/20 text-[#002FA7] dark:text-blue-400 ml-[-1px]'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'
+                      : isLocked
+                        ? 'text-slate-400 dark:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'
                     }`}
                 >
                   <Icon className="h-5 w-5" />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {isLocked && <Lock className="h-3.5 w-3.5 text-slate-400 dark:text-slate-600" />}
                 </NavLink>
               </li>
             );

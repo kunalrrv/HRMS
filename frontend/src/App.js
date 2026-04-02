@@ -6,6 +6,7 @@ import { Toaster } from "./components/ui/sonner";
 // Auth Context
 import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { PlanProvider } from "./contexts/PlanContext";
 import { ProtectedRoute, PublicRoute } from "./components/ProtectedRoute";
 
 // Layout
@@ -32,6 +33,8 @@ import TimesheetAdminPage from "./pages/timesheet/TimesheetAdminPage";
 import ProjectsPage from "./pages/projects/ProjectsPage";
 import CalendarPage from "./pages/calendar/CalendarPage";
 import ProfilePage from "./pages/profile/ProfilePage";
+import AuditLogsPage from "./pages/audit/AuditLogsPage";
+import { FeatureGate } from "./components/FeatureGate";
 
 // Router wrapper to handle OAuth callback synchronously
 function AppRouter() {
@@ -81,12 +84,13 @@ function AppRouter() {
         <Route path="/attendance" element={<AttendancePage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/leaves" element={<LeavesPage />} />
-        <Route path="/payroll" element={<PayrollPage />} />
-        <Route path="/recruitment" element={<RecruitmentPage />} />
-        <Route path="/timesheet" element={<TimesheetPage />} />
-        <Route path="/timesheet/admin" element={<TimesheetAdminPage />} />
-        <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="/payroll" element={<FeatureGate feature="payroll" fallbackTitle="Payroll"><PayrollPage /></FeatureGate>} />
+        <Route path="/recruitment" element={<FeatureGate feature="recruitment" fallbackTitle="Recruitment"><RecruitmentPage /></FeatureGate>} />
+        <Route path="/timesheet" element={<FeatureGate feature="timesheets" fallbackTitle="Timesheets"><TimesheetPage /></FeatureGate>} />
+        <Route path="/timesheet/admin" element={<FeatureGate feature="timesheets" fallbackTitle="Timesheet Management"><TimesheetAdminPage /></FeatureGate>} />
+        <Route path="/projects" element={<FeatureGate feature="projects" fallbackTitle="Projects"><ProjectsPage /></FeatureGate>} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/audit-logs" element={<FeatureGate feature="audit_logs" fallbackTitle="Audit Logs"><AuditLogsPage /></FeatureGate>} />
         <Route path="/subscription" element={<SubscriptionPage />} />
       </Route>
 
@@ -101,10 +105,12 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <AppRouter />
-        </BrowserRouter>
-        <Toaster position="top-right" />
+        <PlanProvider>
+          <BrowserRouter>
+            <AppRouter />
+          </BrowserRouter>
+          <Toaster position="top-right" />
+        </PlanProvider>
       </AuthProvider>
     </ThemeProvider>
   );
