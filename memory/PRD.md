@@ -1,16 +1,12 @@
 # TalentOps HRMS SaaS - Product Requirements Document
 
 ## Original Problem Statement
-Build a production-ready multi-tenant HRMS SaaS application similar to BambooHR with:
-- Employee Management, Attendance, Leave Management, Payroll (US), Recruitment ATS
-- Timesheet Management with Admin approval, Reports, CSV/PDF export
-- Multi-tenant architecture, Role-based access, Dark mode, Calendar integration
-- Dashboard analytics with charts (attendance, leave, payroll, recruitment)
+Build a production-ready multi-tenant HRMS SaaS application similar to BambooHR with Employee Management, Attendance, Leave Management, US Payroll, Recruitment ATS, Timesheet Management, Dashboard Analytics, Employee Self-Service Portal, Dark Mode, Calendar Integration, and Mobile-Responsive Design.
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind CSS + Recharts
 - **Backend**: FastAPI + MongoDB
-- **Auth**: JWT with httpOnly cookies (Google OAuth removed per user request)
+- **Auth**: JWT with httpOnly cookies (secure, samesite=none)
 
 ## What's Been Implemented
 
@@ -22,7 +18,16 @@ Build a production-ready multi-tenant HRMS SaaS application similar to BambooHR 
 - [x] Demo accounts on login page
 
 ### Employee Management
-- [x] CRUD employees with profiles, state_code field
+- [x] CRUD employees with profiles, state_code field for US tax
+
+### Employee Self-Service Portal (April 2, 2026)
+- [x] /profile page with header card (name, designation, department, employee code, state badge)
+- [x] Profile tab: Edit phone, address, emergency contact, state (dropdown with all 51 US states)
+- [x] Attendance tab: Attendance history table (date, clock in/out, hours)
+- [x] Leaves tab: Leave balance cards + leave history table
+- [x] Payroll tab: Pay stubs table with PDF download
+- [x] "My Profile" sidebar nav for employees
+- [x] Backend: GET /api/profile, PUT /api/profile, GET /api/profile/history
 
 ### Attendance & Calendar
 - [x] Clock-in/out with attendance history
@@ -38,9 +43,7 @@ Build a production-ready multi-tenant HRMS SaaS application similar to BambooHR 
 - [x] Medicare (1.45% + 0.9% additional over $200k)
 - [x] State Tax (configurable per employee, 51 states with rates)
 - [x] Bulk payroll generation (all employees at once)
-- [x] Individual payroll generation
 - [x] PDF pay stub download (jsPDF)
-- [x] GET /api/payroll/states endpoint for state list
 
 ### Recruitment ATS
 - [x] Job postings, candidate pipeline (Kanban view)
@@ -49,46 +52,36 @@ Build a production-ready multi-tenant HRMS SaaS application similar to BambooHR 
 - [x] Employee weekly entry, Admin approval/rejection, Reports, CSV/PDF export
 
 ### Dashboard Analytics (April 2, 2026)
-- [x] 4 stat cards (employees, attendance, leaves, positions)
-- [x] Attendance trend (bar chart, last 7 days)
-- [x] Leave distribution (donut chart)
-- [x] Payroll cost trend (line chart, last 6 months)
-- [x] Recruitment pipeline (horizontal bar chart)
+- [x] 4 stat cards + 4 Recharts charts (attendance, leave, payroll, recruitment)
 - [x] Quick action cards
 
 ### Dark Mode (April 2, 2026)
 - [x] ThemeContext with localStorage persistence
-- [x] CSS variables for light/dark themes
-- [x] Theme toggle button in sidebar
-- [x] All pages support dark mode
+- [x] CSS variables for light/dark themes across all pages
 
-### Calendar Integration (April 2, 2026)
-- [x] Full month calendar view
-- [x] Attendance badges (P=Present, A=Absent)
-- [x] Leave badges (CL, SL, PL, pending)
-- [x] Today highlight, month navigation
-- [x] Summary stat cards
+### Mobile-Responsive (April 2, 2026)
+- [x] Hamburger menu sidebar with overlay
+- [x] Cards stack vertically on mobile
+- [x] Touch-friendly button sizing (min-height: 40px)
+- [x] Responsive tables with horizontal scroll
+- [x] Calendar grid adapts to mobile viewports
 
-### UI Changes (April 2, 2026)
+### UI Changes
 - [x] Google sign-in button removed from login page
+- [x] Currency changed from ₹ (INR) to $ (USD) across all pages
 
 ## Prioritized Backlog
 
 ### P1 - High Priority
 - [ ] File uploads for employee documents and resumes
 - [ ] Email notifications (Resend integration)
-- [ ] Employee state_code editing in employee detail page
 - [ ] Employee org hierarchy view
 
 ### P2 - Medium Priority
 - [ ] Mocked Razorpay subscription billing
 - [ ] Audit logs for all actions
 - [ ] Advanced reporting & analytics
-- [ ] Employee self-service profile updates
-
-### P3 - Nice to Have
-- [ ] Mobile-responsive improvements
-- [ ] Slack/Teams notifications
+- [ ] Slack/Teams webhook notifications
 - [ ] Background jobs for payroll processing
 
 ## Test Credentials
@@ -99,13 +92,12 @@ Build a production-ready multi-tenant HRMS SaaS application similar to BambooHR 
 ## API Endpoints
 All prefixed with `/api/`:
 - `/auth/*` - Authentication
+- `/profile`, `/profile/history` - Employee self-service
 - `/employees/*` - Employee CRUD
 - `/attendance/*` - Attendance tracking
 - `/leaves/*` - Leave management
 - `/payroll/*` - US Payroll (generate, generate-bulk, states, list)
-- `/jobs/*` - Job postings
-- `/candidates/*` - Candidate management
-- `/projects/*` - Project management
-- `/timesheets/*` - Timesheet CRUD
-- `/dashboard/*` - Stats, employee-stats, analytics
+- `/jobs/*`, `/candidates/*` - Recruitment
+- `/projects/*`, `/timesheets/*` - Timesheet management
+- `/dashboard/*` - Stats, analytics
 - `/subscription/*` - Subscription billing
