@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 const TEST_CREDENTIALS = [
   { role: 'Super Admin', email: 'admin@talentops.com', password: 'admin123' },
   { role: 'HR Admin', email: 'hr@acmecorp.com', password: 'password123' },
+  { role: 'Employee', email: 'john.doe@acmecorp.com', password: 'employee123' },
 ];
 
 export default function LoginPage() {
