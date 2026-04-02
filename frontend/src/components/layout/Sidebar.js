@@ -14,7 +14,9 @@ import {
   X,
   Building2,
   CreditCard,
-  ChevronDown
+  ChevronDown,
+  ClipboardList,
+  FolderKanban
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import {
@@ -30,9 +32,11 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'hr', 'employee'] },
   { path: '/employees', label: 'Employees', icon: Users, roles: ['super_admin', 'admin', 'hr'] },
   { path: '/attendance', label: 'Attendance', icon: Clock, roles: ['super_admin', 'admin', 'hr', 'employee'] },
+  { path: '/timesheet', label: 'Timesheet', icon: ClipboardList, roles: ['super_admin', 'admin', 'hr', 'employee'] },
   { path: '/leaves', label: 'Leaves', icon: Calendar, roles: ['super_admin', 'admin', 'hr', 'employee'] },
   { path: '/payroll', label: 'Payroll', icon: DollarSign, roles: ['super_admin', 'admin', 'hr', 'employee'] },
   { path: '/recruitment', label: 'Recruitment', icon: Briefcase, roles: ['super_admin', 'admin', 'hr'] },
+  { path: '/projects', label: 'Projects', icon: FolderKanban, roles: ['super_admin', 'admin'] },
   { path: '/settings', label: 'Settings', icon: Settings, roles: ['super_admin', 'admin'] },
   { path: '/subscription', label: 'Subscription', icon: CreditCard, roles: ['super_admin', 'admin'] },
 ];

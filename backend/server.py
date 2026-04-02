@@ -268,6 +268,57 @@ class SubscriptionUpdate(BaseModel):
     plan: SubscriptionPlan
     payment_id: Optional[str] = None
 
+# ===================== PROJECT & TIMESHEET MODELS =====================
+class ProjectCreate(BaseModel):
+    name: str
+    code: Optional[str] = None
+    description: Optional[str] = None
+    is_active: bool = True
+
+class ProjectResponse(BaseModel):
+    id: str
+    org_id: str
+    name: str
+    code: Optional[str] = None
+    description: Optional[str] = None
+    is_active: bool
+    created_at: str
+
+class TimesheetEntryCreate(BaseModel):
+    project_id: str
+    week_start_date: str  # Monday of the week (YYYY-MM-DD)
+    monday_hours: float = 0
+    tuesday_hours: float = 0
+    wednesday_hours: float = 0
+    thursday_hours: float = 0
+    friday_hours: float = 0
+    saturday_hours: float = 0
+    sunday_hours: float = 0
+    notes: Optional[str] = None
+
+class TimesheetEntryResponse(BaseModel):
+    id: str
+    employee_id: str
+    org_id: str
+    project_id: str
+    project_name: str
+    week_start_date: str
+    monday_hours: float
+    tuesday_hours: float
+    wednesday_hours: float
+    thursday_hours: float
+    friday_hours: float
+    saturday_hours: float
+    sunday_hours: float
+    total_hours: float
+    notes: Optional[str] = None
+    status: str  # draft, submitted, approved, rejected
+    created_at: str
+
+class TimesheetStatusUpdate(BaseModel):
+    status: str  # submitted, approved, rejected
+    feedback: Optional[str] = None
+
 # ===================== HELPER FUNCTIONS =====================
 def hash_password(password: str) -> str:
     salt = bcrypt.gensalt()
@@ -1311,6 +1362,293 @@ async def update_candidate_stage(candidate_id: str, data: CandidateStageUpdate, 
         raise HTTPException(status_code=404, detail="Candidate not found")
     
     return {"message": "Candidate stage updated"}
+
+# ===================== PROJECT ROUTES =====================
+@api_router.post("/projects", response_model=ProjectResponse)
+async def create_project(data: ProjectCreate, request: Request):
+    user = await get_current_user(request)
+    if user["role"] not in [UserRole.SUPER_ADMIN.value, UserRole.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Only admins can create projects")
+    
+    if not user.get("org_id"):
+        raise HTTPException(status_code=400, detail="No organization")
+    
+    project_id = str(uuid.uuid4())
+    project = {
+        "id": project_id,
+        "org_id": user["org_id"],
+        "name": data.name,
+        "code": data.code or data.name[:3].upper() + str(uuid.uuid4())[:4].upper(),
+        "description": data.description,
+        "is_active": data.is_active,
+        "created_by": user["id"],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.projects.insert_one(project)
+    
+    return ProjectResponse(**{k: v for k, v in project.items() if k not in ["_id", "created_by"]})
+
+@api_router.get("/projects", response_model=List[ProjectResponse])
+async def list_projects(request: Request, active_only: bool = True):
+    user = await get_current_user(request)
+    
+    if not user.get("org_id"):
+        return []
+    
+    query = {"org_id": user["org_id"]}
+    if active_only:
+        query["is_active"] = True
+    
+    projects = await db.projects.find(query, {"_id": 0, "created_by": 0}).sort("name", 1).to_list(1000)
+    return [ProjectResponse(**p) for p in projects]
+
+@api_router.put("/projects/{project_id}")
+async def update_project(project_id: str, data: ProjectCreate, request: Request):
+    user = await get_current_user(request)
+    if user["role"] not in [UserRole.SUPER_ADMIN.value, UserRole.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Only admins can update projects")
+    
+    result = await db.projects.update_one(
+        {"id": project_id, "org_id": user["org_id"]},
+        {"$set": {
+            "name": data.name,
+            "code": data.code,
+            "description": data.description,
+            "is_active": data.is_active
+        }}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    return {"message": "Project updated"}
+
+@api_router.delete("/projects/{project_id}")
+async def delete_project(project_id: str, request: Request):
+    user = await get_current_user(request)
+    if user["role"] not in [UserRole.SUPER_ADMIN.value, UserRole.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Only admins can delete projects")
+    
+    # Soft delete - just mark as inactive
+    result = await db.projects.update_one(
+        {"id": project_id, "org_id": user["org_id"]},
+        {"$set": {"is_active": False}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    return {"message": "Project deleted"}
+
+# ===================== TIMESHEET ROUTES =====================
+def get_week_start(date_str: str) -> str:
+    """Get the Monday of the week for a given date"""
+    date = datetime.strptime(date_str, "%Y-%m-%d")
+    monday = date - timedelta(days=date.weekday())
+    return monday.strftime("%Y-%m-%d")
+
+@api_router.post("/timesheets", response_model=TimesheetEntryResponse)
+async def create_timesheet_entry(data: TimesheetEntryCreate, request: Request):
+    user = await get_current_user(request)
+    
+    # Get employee record
+    employee = await db.employees.find_one({"user_id": user["id"]}, {"_id": 0})
+    if not employee:
+        raise HTTPException(status_code=400, detail="Employee record not found")
+    
+    # Verify project exists
+    project = await db.projects.find_one({"id": data.project_id, "org_id": user["org_id"], "is_active": True})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Normalize week start to Monday
+    week_start = get_week_start(data.week_start_date)
+    
+    # Check if entry already exists for this project and week
+    existing = await db.timesheets.find_one({
+        "employee_id": employee["id"],
+        "project_id": data.project_id,
+        "week_start_date": week_start
+    })
+    
+    total_hours = (data.monday_hours + data.tuesday_hours + data.wednesday_hours + 
+                   data.thursday_hours + data.friday_hours + data.saturday_hours + data.sunday_hours)
+    
+    if existing:
+        # Update existing entry
+        await db.timesheets.update_one(
+            {"id": existing["id"]},
+            {"$set": {
+                "monday_hours": data.monday_hours,
+                "tuesday_hours": data.tuesday_hours,
+                "wednesday_hours": data.wednesday_hours,
+                "thursday_hours": data.thursday_hours,
+                "friday_hours": data.friday_hours,
+                "saturday_hours": data.saturday_hours,
+                "sunday_hours": data.sunday_hours,
+                "total_hours": total_hours,
+                "notes": data.notes,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        timesheet_id = existing["id"]
+    else:
+        # Create new entry
+        timesheet_id = str(uuid.uuid4())
+        timesheet = {
+            "id": timesheet_id,
+            "employee_id": employee["id"],
+            "org_id": user["org_id"],
+            "project_id": data.project_id,
+            "week_start_date": week_start,
+            "monday_hours": data.monday_hours,
+            "tuesday_hours": data.tuesday_hours,
+            "wednesday_hours": data.wednesday_hours,
+            "thursday_hours": data.thursday_hours,
+            "friday_hours": data.friday_hours,
+            "saturday_hours": data.saturday_hours,
+            "sunday_hours": data.sunday_hours,
+            "total_hours": total_hours,
+            "notes": data.notes,
+            "status": "draft",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.timesheets.insert_one(timesheet)
+    
+    # Fetch and return the entry
+    entry = await db.timesheets.find_one({"id": timesheet_id}, {"_id": 0})
+    return TimesheetEntryResponse(**entry, project_name=project["name"])
+
+@api_router.get("/timesheets", response_model=List[TimesheetEntryResponse])
+async def list_timesheets(
+    request: Request,
+    week_start_date: Optional[str] = None,
+    employee_id: Optional[str] = None,
+    status: Optional[str] = None
+):
+    user = await get_current_user(request)
+    
+    query = {"org_id": user["org_id"]}
+    
+    # Employees can only see their own timesheets
+    if user["role"] == UserRole.EMPLOYEE.value:
+        employee = await db.employees.find_one({"user_id": user["id"]})
+        if employee:
+            query["employee_id"] = employee["id"]
+        else:
+            return []
+    elif employee_id:
+        query["employee_id"] = employee_id
+    
+    if week_start_date:
+        query["week_start_date"] = get_week_start(week_start_date)
+    
+    if status:
+        query["status"] = status
+    
+    entries = await db.timesheets.find(query, {"_id": 0}).sort("week_start_date", -1).to_list(1000)
+    
+    # Enrich with project names
+    result = []
+    for entry in entries:
+        project = await db.projects.find_one({"id": entry["project_id"]}, {"_id": 0})
+        entry["project_name"] = project["name"] if project else "Unknown Project"
+        result.append(TimesheetEntryResponse(**entry))
+    
+    return result
+
+@api_router.get("/timesheets/week/{week_start_date}")
+async def get_week_timesheets(week_start_date: str, request: Request):
+    """Get all timesheet entries for a specific week for current user"""
+    user = await get_current_user(request)
+    
+    employee = await db.employees.find_one({"user_id": user["id"]}, {"_id": 0})
+    if not employee:
+        return {"entries": [], "total_hours": 0}
+    
+    week_start = get_week_start(week_start_date)
+    
+    entries = await db.timesheets.find({
+        "employee_id": employee["id"],
+        "week_start_date": week_start
+    }, {"_id": 0}).to_list(100)
+    
+    # Enrich with project names and calculate totals
+    result = []
+    total_hours = 0
+    for entry in entries:
+        project = await db.projects.find_one({"id": entry["project_id"]}, {"_id": 0})
+        entry["project_name"] = project["name"] if project else "Unknown Project"
+        total_hours += entry.get("total_hours", 0)
+        result.append(entry)
+    
+    return {
+        "week_start_date": week_start,
+        "entries": result,
+        "total_hours": total_hours
+    }
+
+@api_router.put("/timesheets/{timesheet_id}/submit")
+async def submit_timesheet(timesheet_id: str, request: Request):
+    user = await get_current_user(request)
+    
+    employee = await db.employees.find_one({"user_id": user["id"]})
+    if not employee:
+        raise HTTPException(status_code=400, detail="Employee record not found")
+    
+    result = await db.timesheets.update_one(
+        {"id": timesheet_id, "employee_id": employee["id"], "status": "draft"},
+        {"$set": {"status": "submitted", "submitted_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Timesheet not found or already submitted")
+    
+    return {"message": "Timesheet submitted for approval"}
+
+@api_router.put("/timesheets/{timesheet_id}/status")
+async def update_timesheet_status(timesheet_id: str, data: TimesheetStatusUpdate, request: Request):
+    user = await get_current_user(request)
+    if user["role"] not in [UserRole.SUPER_ADMIN.value, UserRole.ADMIN.value, UserRole.HR.value]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    update_data = {
+        "status": data.status,
+        "reviewed_by": user["id"],
+        "reviewed_at": datetime.now(timezone.utc).isoformat()
+    }
+    if data.feedback:
+        update_data["feedback"] = data.feedback
+    
+    result = await db.timesheets.update_one(
+        {"id": timesheet_id, "org_id": user["org_id"]},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Timesheet not found")
+    
+    return {"message": f"Timesheet {data.status}"}
+
+@api_router.delete("/timesheets/{timesheet_id}")
+async def delete_timesheet(timesheet_id: str, request: Request):
+    user = await get_current_user(request)
+    
+    employee = await db.employees.find_one({"user_id": user["id"]})
+    if not employee:
+        raise HTTPException(status_code=400, detail="Employee record not found")
+    
+    # Only allow deletion of draft timesheets
+    result = await db.timesheets.delete_one({
+        "id": timesheet_id,
+        "employee_id": employee["id"],
+        "status": "draft"
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Timesheet not found or cannot be deleted")
+    
+    return {"message": "Timesheet deleted"}
 
 # ===================== FILE UPLOAD ROUTES =====================
 @api_router.post("/upload")
