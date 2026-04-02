@@ -97,24 +97,27 @@ export default function EmployeeDetailPage() {
       </Button>
 
       {/* Employee Header */}
-      <Card className="border border-slate-200">
+      <Card className="border border-slate-200 dark:border-slate-700 dark:bg-slate-800">
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row md:items-center gap-6">
-            <Avatar className="h-24 w-24">
+            <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
               <AvatarFallback className="bg-[#002FA7] text-white text-2xl">
                 {getInitials(employee.user_name)}
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold text-[#0F172A] font-['Chivo']">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-[#0F172A] dark:text-white font-['Chivo'] truncate">
                 {employee.user_name}
               </h1>
-              <p className="text-slate-500">{employee.designation}</p>
+              <p className="text-slate-500 dark:text-slate-400">{employee.designation}</p>
               <div className="flex flex-wrap gap-2 mt-3">
-                <Badge variant="outline">{employee.department}</Badge>
-                <Badge variant="outline" className="bg-blue-50 text-[#002FA7] border-blue-200">
+                <Badge variant="outline" className="dark:border-slate-600 dark:text-slate-300">{employee.department}</Badge>
+                <Badge variant="outline" className="bg-blue-50 text-[#002FA7] border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">
                   {employee.employee_code}
                 </Badge>
+                {employee.state_code && (
+                  <Badge variant="outline" className="dark:border-slate-600 dark:text-slate-300">{employee.state_code}</Badge>
+                )}
               </div>
             </div>
           </div>
@@ -229,13 +232,13 @@ export default function EmployeeDetailPage() {
                       data-testid="salary-basic"
                     />
                   ) : (
-                    <p className="text-2xl font-bold text-[#0F172A]">
-                      ₹{salary.basic.toLocaleString()}
+                    <p className="text-2xl font-bold text-[#0F172A] dark:text-white">
+                      ${salary.basic.toLocaleString()}
                     </p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label>HRA</Label>
+                  <Label className="dark:text-slate-200">HRA</Label>
                   {editMode ? (
                     <Input
                       type="number"
@@ -244,13 +247,13 @@ export default function EmployeeDetailPage() {
                       data-testid="salary-hra"
                     />
                   ) : (
-                    <p className="text-2xl font-bold text-[#0F172A]">
-                      ₹{salary.hra.toLocaleString()}
+                    <p className="text-2xl font-bold text-[#0F172A] dark:text-white">
+                      ${salary.hra.toLocaleString()}
                     </p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label>Allowances</Label>
+                  <Label className="dark:text-slate-200">Allowances</Label>
                   {editMode ? (
                     <Input
                       type="number"
@@ -259,8 +262,8 @@ export default function EmployeeDetailPage() {
                       data-testid="salary-allowances"
                     />
                   ) : (
-                    <p className="text-2xl font-bold text-[#0F172A]">
-                      ₹{salary.allowances.toLocaleString()}
+                    <p className="text-2xl font-bold text-[#0F172A] dark:text-white">
+                      ${salary.allowances.toLocaleString()}
                     </p>
                   )}
                 </div>
@@ -273,7 +276,7 @@ export default function EmployeeDetailPage() {
                     <span className="text-lg font-medium">Gross Salary (Monthly)</span>
                   </div>
                   <span className="text-2xl font-bold text-[#002FA7]">
-                    ₹{grossSalary.toLocaleString()}
+                    ${grossSalary.toLocaleString()}
                   </span>
                 </div>
               </div>

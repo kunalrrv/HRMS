@@ -174,6 +174,39 @@ input:focus, select:focus, textarea:focus {
     @apply ring-2 ring-[#002FA7]/20 border-[#002FA7];
 }
 
+/* Mobile responsive tables */
+@media (max-width: 640px) {
+    .overflow-x-auto {
+        -webkit-overflow-scrolling: touch;
+    }
+    table {
+        font-size: 0.8125rem;
+    }
+    table th, table td {
+        padding: 0.5rem 0.625rem;
+        white-space: nowrap;
+    }
+}
+
+/* Dark mode body */
+.dark body, .dark {
+    color-scheme: dark;
+}
+
+/* Touch-friendly buttons on mobile */
+@media (max-width: 640px) {
+    button, [role="button"] {
+        min-height: 40px;
+    }
+}
+
+/* Responsive main content padding */
+@media (max-width: 640px) {
+    .p-6.md\:p-8 {
+        padding: 1rem;
+    }
+}
+
 @layer base {
     [data-debug-wrapper="true"] {
         display: contents !important;

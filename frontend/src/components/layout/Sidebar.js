@@ -5,7 +5,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import {
   LayoutDashboard, Users, Clock, Calendar as CalendarIcon, DollarSign, Briefcase,
   Settings, LogOut, Menu, X, Building2, CreditCard, ChevronDown,
-  ClipboardList, FolderKanban, ClipboardCheck, Moon, Sun, CalendarDays
+  ClipboardList, FolderKanban, ClipboardCheck, Moon, Sun, CalendarDays, UserCircle
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import {
@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback } from '../ui/avatar';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'hr', 'employee'] },
+  { path: '/profile', label: 'My Profile', icon: UserCircle, roles: ['employee'] },
   { path: '/employees', label: 'Employees', icon: Users, roles: ['super_admin', 'admin', 'hr'] },
   { path: '/attendance', label: 'Attendance', icon: Clock, roles: ['super_admin', 'admin', 'hr', 'employee'] },
   { path: '/calendar', label: 'Calendar', icon: CalendarDays, roles: ['super_admin', 'admin', 'hr', 'employee'] },

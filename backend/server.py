@@ -985,6 +985,83 @@ async def update_employee_salary(employee_id: str, data: SalaryStructure, reques
     
     return {"message": "Salary updated"}
 
+class ProfileUpdate(BaseModel):
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    state_code: Optional[str] = None
+
+@api_router.get("/profile")
+async def get_my_profile(request: Request):
+    user = await get_current_user(request)
+    employee = await db.employees.find_one({"user_id": user["id"]}, {"_id": 0})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee profile not found")
+    return {k: v for k, v in employee.items() if k != "_id"}
+
+@api_router.put("/profile")
+async def update_my_profile(data: ProfileUpdate, request: Request):
+    user = await get_current_user(request)
+    employee = await db.employees.find_one({"user_id": user["id"]}, {"_id": 0})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee profile not found")
+    
+    update = {}
+    if data.phone is not None:
+        update["phone"] = data.phone
+    if data.address is not None:
+        update["address"] = data.address
+    if data.emergency_contact is not None:
+        update["emergency_contact"] = data.emergency_contact
+    if data.state_code is not None:
+        update["state_code"] = data.state_code
+    
+    if update:
+        await db.employees.update_one({"id": employee["id"]}, {"$set": update})
+    
+    return {"message": "Profile updated"}
+
+@api_router.get("/profile/history")
+async def get_my_history(request: Request):
+    user = await get_current_user(request)
+    employee = await db.employees.find_one({"user_id": user["id"]}, {"_id": 0})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee profile not found")
+    
+    attendance = await db.attendance.find(
+        {"employee_id": employee["id"]}, {"_id": 0}
+    ).sort("date", -1).to_list(90)
+    
+    leaves = await db.leaves.find(
+        {"employee_id": employee["id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    
+    payrolls_raw = await db.payroll.find(
+        {"employee_id": employee["id"]}, {"_id": 0}
+    ).sort([("year", -1), ("month", -1)]).to_list(24)
+    
+    payrolls = []
+    for p in payrolls_raw:
+        p.setdefault("federal_tax", p.get("tds", 0))
+        p.setdefault("state_tax", 0)
+        p.setdefault("social_security_employee", p.get("pf_employee", 0))
+        p.setdefault("social_security_employer", p.get("pf_employer", 0))
+        p.setdefault("medicare_employee", p.get("esi_employee", 0))
+        p.setdefault("medicare_employer", p.get("esi_employer", 0))
+        p.setdefault("state_code", None)
+        payrolls.append({k: v for k, v in p.items() if k != "_id"})
+    
+    balance = await db.leave_balances.find_one(
+        {"employee_id": employee["id"], "year": datetime.now(timezone.utc).year}, {"_id": 0}
+    )
+    
+    return {
+        "attendance": attendance,
+        "leaves": leaves,
+        "payrolls": payrolls,
+        "leave_balance": {k: v for k, v in balance.items() if k != "_id"} if balance else None
+    }
+
 # ===================== ATTENDANCE ROUTES =====================
 @api_router.post("/attendance", response_model=AttendanceResponse)
 async def clock_action(data: AttendanceCreate, request: Request):

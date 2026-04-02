@@ -125,8 +125,8 @@ export default function EmployeesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-[#0F172A] font-['Chivo']">Employees</h1>
-          <p className="text-slate-500 mt-1">Manage your team members</p>
+          <h1 className="text-3xl font-bold text-[#0F172A] dark:text-white font-['Chivo']">Employees</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">Manage your team members</p>
         </div>
         <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
           <DialogTrigger asChild>

@@ -103,8 +103,8 @@ export default function AttendancePage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-[#0F172A] font-['Chivo']">Attendance</h1>
-          <p className="text-slate-500 mt-1">Track and manage attendance</p>
+          <h1 className="text-3xl font-bold text-[#0F172A] dark:text-white font-['Chivo']">Attendance</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">Track and manage attendance</p>
         </div>
       </div>
 

@@ -141,8 +141,8 @@ export default function LeavesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-[#0F172A] font-['Chivo']">Leave Management</h1>
-          <p className="text-slate-500 mt-1">Apply and manage leaves</p>
+          <h1 className="text-3xl font-bold text-[#0F172A] dark:text-white font-['Chivo']">Leave Management</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">Apply and manage leaves</p>
         </div>
         <Dialog open={showApplyDialog} onOpenChange={setShowApplyDialog}>
           <DialogTrigger asChild>
@@ -151,7 +151,7 @@ export default function LeavesPage() {
               Apply for Leave
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] dark:bg-slate-800 dark:border-slate-700">
             <DialogHeader>
               <DialogTitle className="font-['Chivo']">Apply for Leave</DialogTitle>
               <DialogDescription>
@@ -235,37 +235,37 @@ export default function LeavesPage() {
 
       {/* Leave Balance Cards */}
       {leaveBalance && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="border border-slate-200 bg-blue-50">
-            <CardContent className="p-6 text-center">
-              <p className="text-3xl font-bold text-[#002FA7]">{leaveBalance.casual_leave}</p>
-              <p className="text-sm text-slate-600">Casual Leave</p>
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
+          <Card className="border border-slate-200 dark:border-slate-700 bg-blue-50 dark:bg-blue-900/20">
+            <CardContent className="p-4 sm:p-6 text-center">
+              <p className="text-2xl sm:text-3xl font-bold text-[#002FA7] dark:text-blue-400">{leaveBalance.casual_leave}</p>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Casual Leave</p>
             </CardContent>
           </Card>
-          <Card className="border border-slate-200 bg-green-50">
-            <CardContent className="p-6 text-center">
-              <p className="text-3xl font-bold text-green-600">{leaveBalance.sick_leave}</p>
-              <p className="text-sm text-slate-600">Sick Leave</p>
+          <Card className="border border-slate-200 dark:border-slate-700 bg-green-50 dark:bg-green-900/20">
+            <CardContent className="p-4 sm:p-6 text-center">
+              <p className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">{leaveBalance.sick_leave}</p>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Sick Leave</p>
             </CardContent>
           </Card>
-          <Card className="border border-slate-200 bg-purple-50">
-            <CardContent className="p-6 text-center">
-              <p className="text-3xl font-bold text-purple-600">{leaveBalance.privilege_leave}</p>
-              <p className="text-sm text-slate-600">Privilege Leave</p>
+          <Card className="border border-slate-200 dark:border-slate-700 bg-purple-50 dark:bg-purple-900/20">
+            <CardContent className="p-4 sm:p-6 text-center">
+              <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">{leaveBalance.privilege_leave}</p>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Privilege Leave</p>
             </CardContent>
           </Card>
         </div>
       )}
 
       {/* Leave Applications */}
-      <Card className="border border-slate-200">
-        <CardHeader className="border-b border-slate-200 flex flex-row items-center justify-between">
-          <CardTitle className="text-lg font-['Chivo'] flex items-center gap-2">
+      <Card className="border border-slate-200 dark:border-slate-700 dark:bg-slate-800">
+        <CardHeader className="border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <CardTitle className="text-lg font-['Chivo'] dark:text-white flex items-center gap-2">
             <Calendar className="h-5 w-5" />
             Leave Applications
           </CardTitle>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[150px]" data-testid="filter-status">
+            <SelectTrigger className="w-full sm:w-[150px]" data-testid="filter-status">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -290,7 +290,7 @@ export default function LeavesPage() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50">
+                  <TableRow className="bg-slate-50 dark:bg-slate-700/50">
                     <TableHead className="font-semibold">Type</TableHead>
                     <TableHead className="font-semibold">Duration</TableHead>
                     <TableHead className="font-semibold">Reason</TableHead>

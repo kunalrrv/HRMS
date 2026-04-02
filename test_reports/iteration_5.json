@@ -1,0 +1,109 @@
+{
+  "summary": "Completed comprehensive testing of Employee Self-Service Portal and Mobile-Responsive improvements. All 18 test cases passed. Backend APIs 100% functional, Frontend UI fully operational with all workflows tested.",
+  
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  
+  "passed_tests": [
+    "1. Login as employee (john.doe@acmecorp.com / employee123) - 'My Profile' appears in sidebar ✓",
+    "2. Navigate to /profile - header card shows name (John Doe), designation (Software Developer), department (Engineering), employee code (EMPDB549405), state badge (CA) ✓",
+    "3. Profile tab: Personal info displays correctly - Phone, Address, Emergency Contact, State (Tax) ✓",
+    "4. Profile tab: Edit button makes all 4 fields editable (phone, address, emergency_contact inputs and state dropdown) ✓",
+    "5. Profile tab: Change phone to '(415) 555-9999', Save - success toast appears and updated value persists ✓",
+    "6. Profile tab: Read-only fields displayed - Email (john.doe@acmecorp.com), Department (Engineering), Date of Joining (January 15, 2026) ✓",
+    "7. Attendance tab: Attendance History table with Date, Clock In, Clock Out, Hours columns ✓",
+    "8. Leaves tab: Leave balance cards (Casual: 10, Sick: 12, Privilege: 15) and Leave History table with approved CL leave ✓",
+    "9. Payroll tab: Pay Stubs table with Period, Gross, Deductions, Net Pay columns - 3 records (Jun/Apr/Mar 2026) ✓",
+    "10. Payroll tab: PDF button clicked - no JS errors, download triggers ✓",
+    "11. Backend API: GET /api/profile returns employee data with phone, address, state_code fields ✓",
+    "12. Backend API: PUT /api/profile with {phone:'(555) 123-4567'} updates successfully ✓",
+    "13. Backend API: GET /api/profile/history returns attendance, leaves, payrolls arrays ✓",
+    "14. Mobile viewport (390x844): Login page renders correctly without horizontal overflow ✓",
+    "15. Mobile viewport: Dashboard page stat cards stack vertically, attendance card wraps ✓",
+    "16. Mobile viewport: Hamburger menu button visible at top-left, opens sidebar overlay ✓",
+    "17. Mobile viewport: Calendar page grid fits within viewport ✓",
+    "18. Login page: Google sign-in button NOT present (removed per user request) ✓"
+  ],
+  
+  "test_report_links": [
+    "/app/backend/tests/test_profile_selfservice.py",
+    "/app/test_reports/pytest/pytest_results_profile.xml"
+  ],
+  
+  "action_items": [],
+  
+  "critical_code_review_comments": [],
+  
+  "updated_files": [
+    "/app/backend/tests/test_profile_selfservice.py"
+  ],
+  
+  "success_rate": {
+    "backend": "100% (13/13 pytest tests passed)",
+    "frontend": "100% (All 18 UI tests passed)"
+  },
+  
+  "test_credentials": {
+    "employee": "john.doe@acmecorp.com / employee123",
+    "hr_admin": "hr@acmecorp.com / password123",
+    "super_admin": "admin@talentops.com / admin123"
+  },
+  
+  "seed_data_verified": {
+    "employee_profile": {
+      "name": "John Doe",
+      "designation": "Software Developer",
+      "department": "Engineering",
+      "employee_code": "EMPDB549405",
+      "phone": "(415) 555-0123",
+      "address": "123 Main St, San Francisco, CA 94102",
+      "emergency_contact": "Jane Doe - (415) 555-9876",
+      "state_code": "CA"
+    },
+    "attendance_records": "1 record (Apr 2, 2026 - 06:09 AM clock in/out)",
+    "leave_records": "1 approved CL leave (Apr 10-11, 2026)",
+    "payroll_records": "3 records (Mar/Apr/Jun 2026) - $80k gross, $43.8k net",
+    "leave_balance": "CL: 10, SL: 12, PL: 15"
+  },
+  
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  
+  "context_for_next_testing_agent": "Employee Self-Service Portal fully tested. Profile page has 4 tabs (Profile, Attendance, Leaves, Payroll). Profile tab allows editing phone, address, emergency_contact, and state_code. Mobile responsive design working correctly with hamburger menu at 390x844 viewport. Google sign-in removed from login page. All data-testid attributes present: tab-profile, tab-attendance, tab-leaves, tab-payroll, edit-profile-btn, save-profile-btn, mobile-menu-toggle, nav-my-profile.",
+  
+  "features_verified": {
+    "employee_self_service_portal": {
+      "profile_page": {
+        "header_card": "Shows name, designation, department, employee code, state badge",
+        "profile_tab": "Editable fields: phone, address, emergency_contact, state dropdown",
+        "attendance_tab": "Table with Date, Clock In, Clock Out, Hours columns",
+        "leaves_tab": "Leave balance cards (Casual/Sick/Privilege) + Leave History table",
+        "payroll_tab": "Pay Stubs table with Period, Gross, Deductions, Net Pay, PDF button"
+      },
+      "sidebar_nav": "'My Profile' nav item visible for employee role",
+      "edit_save_flow": "Edit button → fields editable → Save → success toast → values persist"
+    },
+    "mobile_responsive": {
+      "login_page": "No horizontal overflow at 390x844",
+      "dashboard": "Stat cards stack vertically, attendance card wraps",
+      "hamburger_menu": "data-testid='mobile-menu-toggle' visible, opens sidebar overlay",
+      "calendar": "Grid fits within viewport"
+    },
+    "backend_apis": {
+      "GET /api/profile": "Returns employee data with phone, address, state_code",
+      "PUT /api/profile": "Updates phone, address, emergency_contact, state_code",
+      "GET /api/profile/history": "Returns attendance, leaves, payrolls arrays + leave_balance"
+    },
+    "login_page": {
+      "google_signin_removed": "No Google button or 'Or continue with' divider"
+    }
+  }
+}
